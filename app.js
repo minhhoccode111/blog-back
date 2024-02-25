@@ -1,0 +1,142 @@
+const RateLimit = require('express-rate-limit');
+// const cookieParser = require('cookie-parser');
+const createError = require('http-errors');
+const compression = require('compression');
+const express = require('express');
+const logger = require('morgan');
+const helmet = require('helmet');
+const path = require('path');
+require('dotenv').config();
+const bcrypt = require('bcrypt');
+
+const debug = require('debug')('debug-custom');
+
+// connect database
+const mongoose = require('mongoose');
+mongoose.set('strictQuery', false);
+const dev_db_url = '';
+
+const mongoDB = process.env.MONGODB_URI || dev_db_url;
+
+main()
+  .then(() => debug('connected to database'))
+  .catch((err) => debug('an error occur: ', err));
+
+async function main() {
+  await mongoose.connect(mongoDB);
+}
+
+// db models
+const User = require('./src/models/user');
+const Post = require('./src/models/post');
+const Comment = require('./src/models/comment');
+
+// routes controllers
+const indexRouter = require('./src/routes/index'); // login, signup
+const postRouter = require('./src/routes/post'); // post related TODO 
+
+const app = express();
+
+// view engine setup
+app.set('views', path.join(__dirname, 'src/views'));
+app.set('view engine', 'pug');
+
+// reduce fingerprinting
+app.disable('x-powered-by');
+
+// rate limit
+const limiter = RateLimit({ windowMs: 1 * 60 * 1000, max: 200 }); // max 20 per 1 minute
+app.use(limiter);
+
+// compress responses for performance
+app.use(compression());
+// security HTTP header
+app.use(helmet.contentSecurityPolicy({ directives: { 'script-src': ["'self'"] } }));
+
+// basic setup
+app.use(logger('dev'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+// app.use(cookieParser({ secret: process.env.SECRET })); // may not need this when we have session
+app.use(express.static(path.join(__dirname, 'public')));
+
+// session
+const session = require('express-session');
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+
+// session object
+const ses = {
+  secret: process.env.SECRET,
+  resave: false, // resave session hasn't been modified
+  saveUninitialized: true, // whether a session be created for new but not yet modified session
+  cookie: { maxAge: 1000 * 60 * 200 }, // 2 mins TODO change to 7 days in production
+};
+
+// use secure in production but allowing for testing in development
+debug(process.env.NODE_ENV);
+// serve secure cookies, only allow cookies on HTTPS
+// if (process.env.NODE_ENV === 'production') ses.cookie.secure = true; // can't test production on localhost because it's HTTP
+
+app.use(session(ses)); // set session
+
+// call this when passport.authenticate() is called in /login post request, setup local strategy
+passport.use(
+  new LocalStrategy(async (username, password, done) => {
+    try {
+      const user = await User.findOne({ username: username });
+      if (!user) return done(null, false, { message: 'Incorrect username' });
+      // order matter, 1st arg is raw input in form, 2nd is password in db
+      const correct = await bcrypt.compare(password, user.password);
+      if (!correct) return done(null, false, { message: 'Incorrect password' });
+      return done(null, user);
+    } catch (err) {
+      return done(err);
+    }
+  })
+);
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    done(null, user);
+  } catch (err) {
+    done(err);
+  }
+});
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+app.use((req, res, next) => {
+  res.locals.currentUser = req.user;
+  next();
+});
+
+app.use('/', indexRouter);
+app.use('/user', userRouter);
+
+// catch 404 and forward to error handler
+app.use(function (req, res, next) {
+  next(createError(404));
+});
+
+// error handler
+app.use(function (err, req, res, next) {
+  // set locals, only providing error in development
+  res.locals.message = err.message;
+  res.locals.error = req.app.get('env') === 'development' ? err : {};
+
+  // render the error page
+  res.status(err.status || 500);
+  res.render('error', {
+    message: 'Something broke',
+    title: 'Error!',
+  });
+});
+
+module.exports = app;

@@ -1,5 +1,4 @@
 const RateLimit = require('express-rate-limit');
-// const cookieParser = require('cookie-parser');
 const createError = require('http-errors');
 const compression = require('compression');
 const express = require('express');
@@ -8,14 +7,18 @@ const helmet = require('helmet');
 const path = require('path');
 require('dotenv').config();
 const bcrypt = require('bcrypt');
+const asyncHandler = require('express-async-handler');
 
-const debug = require('debug')('debug-custom');
+const debug = require('debug')('xxxxxxxxxxxxxxxxxxxx-debug-xxxxxxxxxxxxxxxxxxxx');
 
 // connect database
 const mongoose = require('mongoose');
+// not throw an error when we try to query the property that not explicitly defined on Schema
 mongoose.set('strictQuery', false);
+// development database string
 const dev_db_url = '';
 
+// if production db is not defined then use the development
 const mongoDB = process.env.MONGODB_URI || dev_db_url;
 
 main()
@@ -26,101 +29,92 @@ async function main() {
   await mongoose.connect(mongoDB);
 }
 
-// db models
+// db models, for authentication
 const User = require('./src/models/user');
-const Post = require('./src/models/post');
-const Comment = require('./src/models/comment');
-
-// routes controllers
-const indexRouter = require('./src/routes/index'); // login, signup
-const postRouter = require('./src/routes/post'); // post related TODO 
 
 const app = express();
-
-// view engine setup
-app.set('views', path.join(__dirname, 'src/views'));
-app.set('view engine', 'pug');
 
 // reduce fingerprinting
 app.disable('x-powered-by');
 
-// rate limit
-const limiter = RateLimit({ windowMs: 1 * 60 * 1000, max: 200 }); // max 20 per 1 minute
+// rate limit // TODO change to 20 in production
+const limiter = RateLimit({ windowMs: 1 * 60 * 1000, max: 200 }); // max 200/min
 app.use(limiter);
 
 // compress responses for performance
 app.use(compression());
+
 // security HTTP header
-app.use(helmet.contentSecurityPolicy({ directives: { 'script-src': ["'self'"] } }));
+app.use(helmet());
 
 // basic setup
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-// app.use(cookieParser({ secret: process.env.SECRET })); // may not need this when we have session
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(logger('dev')); // logger
+app.use(express.json()); // parse json to js object
+app.use(express.urlencoded({ extended: false })); //  parse form data
+app.use(express.static(path.join(__dirname, 'public'))); // server things in public
 
-// session
-const session = require('express-session');
+// passport to authenticate a jwt
 const passport = require('passport');
-const LocalStrategy = require('passport-local').Strategy;
-
-// session object
-const ses = {
-  secret: process.env.SECRET,
-  resave: false, // resave session hasn't been modified
-  saveUninitialized: true, // whether a session be created for new but not yet modified session
-  cookie: { maxAge: 1000 * 60 * 200 }, // 2 mins TODO change to 7 days in production
+// will be call jwt.sign() to create a object, and secret and option like algorithm and time expire
+const jwt = require('jsonwebtoken');
+// a passport strategy to authentication by passport.use(new JwtStrategy(options, verify))
+const JwtStrategy = require('passport-jwt').Strategy;
+// to choose ways to extract json web token from request
+const ExtractJwt = require('passport-jwt').ExtractJwt;
+// option jwt
+const options = {
+  // extract json web token using Bearer in header
+  jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+  // secret
+  secretOrKey: process.env.SECRET,
 };
 
-// use secure in production but allowing for testing in development
-debug(process.env.NODE_ENV);
-// serve secure cookies, only allow cookies on HTTPS
-// if (process.env.NODE_ENV === 'production') ses.cookie.secure = true; // can't test production on localhost because it's HTTP
+app.use(passport.initialize());
 
-app.use(session(ses)); // set session
-
-// call this when passport.authenticate() is called in /login post request, setup local strategy
+// This is called when passport.authenticate() middleware is called in /login route
+// to use jwt strategy and verify user
 passport.use(
-  new LocalStrategy(async (username, password, done) => {
+  new JwtStrategy(options, async (payload, done) => {
     try {
-      const user = await User.findOne({ username: username });
-      if (!user) return done(null, false, { message: 'Incorrect username' });
-      // order matter, 1st arg is raw input in form, 2nd is password in db
-      const correct = await bcrypt.compare(password, user.password);
-      if (!correct) return done(null, false, { message: 'Incorrect password' });
-      return done(null, user);
+      const user = await User.findOne({ username: payload.username }).exec();
+      if (!user) return done(null, false);
+      return done(null, user); // user can be accessed req.user in the following middleware chain
     } catch (err) {
-      return done(err);
+      return done(err, false);
     }
   })
 );
 
-passport.serializeUser((user, done) => {
-  done(null, user.id);
-});
-
-passport.deserializeUser(async (id, done) => {
-  try {
-    const user = await User.findById(id);
-    done(null, user);
-  } catch (err) {
-    done(err);
+// handle login
+app.post('/login', async (req, res, next) => {
+  // extract data from form
+  const username = req.body.username;
+  const password = req.body.password;
+  // check valid login
+  const user = await User.findOne({ username }).exec();
+  const valid = await bcrypt.compare(password, user?.password);
+  if (user === null || !valid) {
+    res.status(401).json({ message: 'Auth failed' });
+  } else {
+    const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 120 });
+    res.status(200).json({
+      message: 'Auth passed',
+      token,
+    });
   }
 });
 
-app.use(passport.initialize());
-app.use(passport.session());
-
-app.use((req, res, next) => {
-  res.locals.currentUser = req.user;
-  next();
+// handle signup
+app.post('/signup', (req, res) => {
+  // TODO
 });
 
-app.use('/', indexRouter);
-app.use('/user', userRouter);
+// handle posts
+const postsRoute = require('./src/routes/posts'); // post related TODO
+const { create } = require('domain');
+app.use('/posts', passport.authenticate('jwt', { session: false }), postsRoute); // route for api
 
-// catch 404 and forward to error handler
+// if no route handle the request mean it a 404
 app.use(function (req, res, next) {
   next(createError(404));
 });
@@ -129,14 +123,14 @@ app.use(function (req, res, next) {
 app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
+  // we can only access the err object in res.locals.error if development, else it's an empty object
   res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error', {
-    message: 'Something broke',
-    title: 'Error!',
-  });
+  // log the error
+  debug(`the error object: `, err);
+
+  // send the error json to client
+  res.status(err.status || 500).json({ message: err.message });
 });
 
 module.exports = app;

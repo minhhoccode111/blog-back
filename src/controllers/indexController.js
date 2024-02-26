@@ -6,10 +6,11 @@ const { body, validationResult } = require('express-validator');
 
 // mongoose models
 const User = require('./../models/user');
-const Message = require('./../models/message');
+const Post = require('./../models/post');
+const Comment = require('./../models/comment');
 
 // debug
-const debug = require('debug')('debug-custom');
+const debug = require('debug')('xxxxxxxxxxxxxxxxxxxx-debug-xxxxxxxxxxxxxxxxxxxx');
 
 // bcrypt to secure password
 const bcrypt = require('bcrypt');
@@ -57,9 +58,11 @@ module.exports.login_get = (req, res) => {
 };
 
 module.exports.login_post = [
+  //
   passport.authenticate('local', {
     failureRedirect: '/login',
     failureMessage: true,
+    session: false,
   }),
   // success login
   (req, res) => {
@@ -90,7 +93,7 @@ module.exports.signup_post = [
   body('password')
     .trim()
     .notEmpty()
-		.withMessage(`Password contain all spaces?`)
+    .withMessage(`Password contain all spaces?`)
     .isLength({ min: 8, max: 32 })
     .withMessage(`Password must be between 8 and 32 characters!`)
     .isStrongPassword()

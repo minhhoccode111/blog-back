@@ -1,7 +1,7 @@
 // try...catch
 const asyncHandler = require('express-async-handler');
 // log
-const debug = require('debug')('debug-custom');
+const debug = require('debug')('xxxxxxxxxxxxxxxxxxxx-debug-xxxxxxxxxxxxxxxxxxxx');
 // validation
 const { body, validationResult } = require('express-validator');
 

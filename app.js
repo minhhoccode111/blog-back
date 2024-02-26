@@ -6,8 +6,6 @@ const logger = require('morgan');
 const helmet = require('helmet');
 const path = require('path');
 require('dotenv').config();
-const bcrypt = require('bcrypt');
-const asyncHandler = require('express-async-handler');
 
 const debug = require('debug')('xxxxxxxxxxxxxxxxxxxx-debug-xxxxxxxxxxxxxxxxxxxx');
 
@@ -16,7 +14,7 @@ const mongoose = require('mongoose');
 // not throw an error when we try to query the property that not explicitly defined on Schema
 mongoose.set('strictQuery', false);
 // development database string
-const dev_db_url = '';
+const dev_db_url = 'mongodb+srv://minhhoccode111:xImH0F6m9Rg4EIQX@cluster0.qqat537.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
 
 // if production db is not defined then use the development
 const mongoDB = process.env.MONGODB_URI || dev_db_url;
@@ -55,8 +53,6 @@ app.use(express.static(path.join(__dirname, 'public'))); // server things in pub
 
 // passport to authenticate a jwt
 const passport = require('passport');
-// will be call jwt.sign() to create a object, and secret and option like algorithm and time expire
-const jwt = require('jsonwebtoken');
 // a passport strategy to authentication by passport.use(new JwtStrategy(options, verify))
 const JwtStrategy = require('passport-jwt').Strategy;
 // to choose ways to extract json web token from request
@@ -69,50 +65,26 @@ const options = {
   secretOrKey: process.env.SECRET,
 };
 
+// init passport within express application
 app.use(passport.initialize());
 
-// This is called when passport.authenticate() middleware is called in /login route
-// to use jwt strategy and verify user
+// This is called when passport.authenticate() middleware is called
 passport.use(
   new JwtStrategy(options, async (payload, done) => {
     try {
       const user = await User.findOne({ username: payload.username }).exec();
       if (!user) return done(null, false);
-      return done(null, user); // user can be accessed req.user in the following middleware chain
+      // success. make req.user available after passport.authenticate() middlewares chain
+      return done(null, user);
     } catch (err) {
       return done(err, false);
     }
   })
 );
 
-// handle login
-app.post('/login', async (req, res, next) => {
-  // extract data from form
-  const username = req.body.username;
-  const password = req.body.password;
-  // check valid login
-  const user = await User.findOne({ username }).exec();
-  const valid = await bcrypt.compare(password, user?.password);
-  if (user === null || !valid) {
-    res.status(401).json({ message: 'Auth failed' });
-  } else {
-    const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 120 });
-    res.status(200).json({
-      message: 'Auth passed',
-      token,
-    });
-  }
-});
-
-// handle signup
-app.post('/signup', (req, res) => {
-  // TODO
-});
-
-// handle posts
-const postsRoute = require('./src/routes/posts'); // post related TODO
-const { create } = require('domain');
-app.use('/posts', passport.authenticate('jwt', { session: false }), postsRoute); // route for api
+// handle api request
+const router = require('./src/routes/index');
+app.use('/api/v1', router); // route for api
 
 // if no route handle the request mean it a 404
 app.use(function (req, res, next) {

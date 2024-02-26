@@ -18,67 +18,72 @@ const bcrypt = require('bcrypt');
 // for login
 const passport = require('passport');
 
-// index handlers
-module.exports.index = asyncHandler(async (req, res, next) => {
-  const messages = await Message.find({}).sort({ created_at: -1 }).populate('user').exec();
-
-  debug(`user in index after logging in: `, req.user);
-
-  res.render('index', {
-    title: 'Home',
-    messages,
-    user: req.user,
-  });
-});
-
-module.exports.about = (req, res) => {
-  res.render('about', {
-    title: 'About',
-  });
-};
-
-module.exports.logout = (req, res) => {
-  req.logout((err) => {
-    if (err) return next(err);
-    res.redirect('/');
-  });
-};
-
-module.exports.login_get = (req, res) => {
-  // only not logged in user will be served form
-  if (!req.user) {
-    res.render('login-form', {
-      title: 'Login',
-      // alert wrong password or username
-      messages: req.session.messages,
-    });
-  } else {
-    res.redirect('/');
-  }
-};
+// will be call jwt.sign() to create a object, and secret and option like algorithm and time expire
+const jwt = require('jsonwebtoken');
 
 module.exports.login_post = [
-  //
-  passport.authenticate('local', {
-    failureRedirect: '/login',
-    failureMessage: true,
-    session: false,
-  }),
-  // success login
-  (req, res) => {
-    res.redirect('/');
+  (req, res, next) => {
+    res.json({ message: `not implemented: login post` });
   },
+  asyncHandler(async (req, res, next) => {
+    // extract data from form
+    const username = req.body.username;
+    const password = req.body.password;
+    // check valid login
+    const user = await User.findOne({ username }).exec();
+    const valid = await bcrypt.compare(password, user?.password);
+    if (user === null || !valid) {
+      res.status(401).json({ message: 'Wrong username or password' });
+    } else {
+      const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 3600 }); // 1 hours
+
+      // return token for client to use for their subsequent requests
+      res.status(200).json({
+        message: 'Successfully login',
+        token,
+      });
+    }
+  }),
 ];
 
-module.exports.signup_get = (req, res, next) => {
-  // only not logged in user will be served form
-  if (!req.user) {
-    res.render('signup-form', {
-      title: 'Signup',
-    });
-  } else {
-    res.redirect('/');
-  }
+module.exports.signup_post = (req, res, next) => {
+  res.json({ message: `not implemented: signup post` });
+};
+
+module.exports.all_posts_get = (req, res, next) => {
+  res.json({ message: `not implemented: all posts get` });
+};
+
+module.exports.all_posts_post = (req, res, next) => {
+  res.json({ message: `not implemented: all posts post` });
+};
+
+module.exports.post_get = (req, res, next) => {
+  res.json({ message: `not implemented: post get` });
+};
+
+module.exports.post_put = (req, res, next) => {
+  res.json({ message: `not implemented: post put` });
+};
+
+module.exports.post_delete = (req, res, next) => {
+  res.json({ message: `not implemented: post delete` });
+};
+
+module.exports.all_comments_get = (req, res, next) => {
+  res.json({ message: `not implemented: all comments get` });
+};
+
+module.exports.all_comments_post = (req, res, next) => {
+  res.json({ message: `not implemented: all comments post` });
+};
+
+module.exports.comment_put = (req, res, next) => {
+  res.json({ message: `not implemented: comment put` });
+};
+
+module.exports.comment_delete = (req, res, next) => {
+  res.json({ message: `not implemented: comment delete` });
 };
 
 module.exports.signup_post = [
@@ -137,41 +142,3 @@ module.exports.signup_post = [
     }
   }),
 ];
-
-module.exports.message_delete_get = asyncHandler(async (req, res, next) => {
-  // redirect to login if not logged in
-  if (!req.user) {
-    res.redirect('/login');
-  } else if (!req.user.admin) {
-    const id = req.user.id;
-    res.redirect(`/user/${id}/upgrade/admin`);
-  } else {
-    const message = await Message.findById(req.params.id).populate({ path: 'user', select: 'fullname' }).exec();
-
-    debug(`full detail about message: `, message);
-
-    if (message === null) {
-      const err = new Error('Message Not Found');
-      err.status = 404;
-      next(err);
-    }
-
-    res.render('delete-message-form', {
-      title: 'Delete message',
-      message,
-    });
-  }
-});
-
-module.exports.message_delete_post = asyncHandler(async (req, res, next) => {
-  const message = await Message.findById(req.params.id).exec();
-
-  if (message === null) {
-    const err = new Error('Message Not Found');
-    err.status = 404;
-    next(err);
-  }
-
-  await Message.findByIdAndDelete(req.params.id);
-  res.redirect('/');
-});

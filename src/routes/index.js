@@ -3,22 +3,26 @@ const router = express.Router();
 
 const IndexController = require('../controllers/indexController');
 
-router.get('/', IndexController.index);
+router.post('/auth/login', IndexController.login_post);
 
-router.get('/about', IndexController.about);
+router.post('/auth/signup', IndexController.signup_post);
 
-router.get('/logout', IndexController.logout);
+router.get('/posts', IndexController.all_posts_get);
 
-router.get('/login', IndexController.login_get);
+router.post('/posts', passport.authenticate({}), IndexController.all_posts_post);
 
-router.post('/login', IndexController.login_post);
+router.get('/posts/:postid', IndexController.post_get);
 
-router.get('/signup', IndexController.signup_get);
+router.put('/posts/:postid', IndexController.post_put);
 
-router.post('/signup', IndexController.signup_post);
+router.delete('/posts/:postid', IndexController.post_delete);
 
-router.get('/message/:id/delete', IndexController.message_delete_get);
+router.get('/posts/:postid/comments', IndexController.all_comments_get);
 
-router.post('/message/:id/delete', IndexController.message_delete_post);
+router.post('/posts/:postid/comments', IndexController.all_comments_post);
+
+router.put('/posts/:postid/comments/:commentid', IndexController.comment_put);
+
+router.delete('/posts/:postid/comments', IndexController.comment_delete);
 
 module.exports = router;

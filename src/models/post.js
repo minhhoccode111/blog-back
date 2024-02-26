@@ -24,7 +24,6 @@ const PostSchema = new Schema({
     ref: 'User',
     required: true,
   },
-  extension: String,
   published: {
     type: Boolean,
     required: true,
@@ -51,11 +50,6 @@ PostSchema.virtual('created_at_formatted').get(function () {
 
 PostSchema.virtual('url').get(function () {
   return `/api/v1/posts/${this._id}`;
-});
-
-PostSchema.virtual('image').get(function () {
-  if (this.extension !== null) return this._id + '.' + this.extension;
-  return null;
 });
 
 module.exports = mongoose.model('Post', PostSchema);

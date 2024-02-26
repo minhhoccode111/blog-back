@@ -21,6 +21,11 @@ const CommentSchema = new Schema({
     ref: 'User',
     required: true,
   },
+  post: {
+    type: Schema.Types.ObjectId,
+    ref: 'Post',
+    required: true,
+  },
 });
 
 CommentSchema.virtual('created_at_formatted').get(function () {

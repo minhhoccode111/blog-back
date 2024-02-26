@@ -26,14 +26,14 @@ const UserSchema = new Schema({
       max: 32,
     },
   },
-  member: {
+  isCreator: {
     type: Boolean,
     required: true,
   },
-  admin: {
-    type: Boolean,
-    required: true,
-  },
+});
+
+UserSchema.virtual('created_at_formatter').get(function () {
+  return DateTime.fromJSDate(this.created_at).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.created_at).toLocaleString(DateTime.TIME_24_SIMPLE);
 });
 
 module.exports = mongoose.model('User', UserSchema);

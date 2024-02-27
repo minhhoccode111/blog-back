@@ -21,16 +21,71 @@ const passport = require('passport');
 // will be call jwt.sign() to create a object, and secret and option like algorithm and time expire
 const jwt = require('jsonwebtoken');
 
-module.exports.all_posts_post = (req, res, next) => {
-  res.json({
-    message: `not implemented: all posts post`,
-    notice: 'only author can create a new post',
-  });
-};
+module.exports.all_posts_post = [
+  body(`title`, `Title cannot be empty.`).trim().notEmpty().escape(),
+  body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
+  body(`published`, `Published cannot be empty.`).trim().notEmpty().escape(),
+  asyncHandler(async (req, res, next) => {
+    const errors = validationResult(req).array();
 
-module.exports.post_put = (req, res, next) => {
-  res.json({ message: `not implemented: post put`, notice: 'only author can update a post', postid: req.params.postid });
-};
+    // destruct data from body
+    const { title, content, published } = req.body;
+
+    const post = new Post({
+      title,
+      content,
+      published,
+    });
+
+    if (errors.length === 0) {
+      await post.save();
+      res.status(200).json({
+        post,
+        message: `Success created post.`,
+      });
+    } else {
+      res.status(400).json({
+        post,
+        errors,
+        message: `Cannot create a post with that data.`,
+      });
+    }
+  }),
+];
+
+module.exports.post_put = [
+  body(`title`, `Title cannot be empty.`).trim().notEmpty().escape(),
+  body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
+  body(`published`, `Published cannot be empty.`).trim().notEmpty().escape(),
+  asyncHandler(async (req, res, next) => {
+    const errors = validationResult(req).array();
+
+    // destruct data from body
+    const { title, content, published } = req.body;
+
+    const post = new Post({
+      title,
+      content,
+      published,
+      _id: req.params.postid,
+    });
+
+    if (errors.length === 0) {
+      const updatedPost = await Post.findByIdAndUpdate(req.params.postid, post, {});
+
+      res.status(200).json({
+        post: updatedPost,
+        message: `Success created post.`,
+      });
+    } else {
+      res.status(400).json({
+        post,
+        errors,
+        message: `Cannot update a post with that data.`,
+      });
+    }
+  }),
+];
 
 module.exports.post_delete = (req, res, next) => {
   res.json({ message: `not implemented: post delete`, notice: 'only author can delete a post', postid: req.params.postid });

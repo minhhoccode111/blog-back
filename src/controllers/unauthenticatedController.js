@@ -18,6 +18,9 @@ const bcrypt = require('bcrypt');
 // will be call jwt.sign() to create a object, and secret and option like algorithm and time expire
 const jwt = require('jsonwebtoken');
 
+// some routes still need authenticate for different data return
+const passport = require('passport');
+
 module.exports.login_post = [
   body('username').trim().escape(),
   body('password').trim().escape(),
@@ -39,7 +42,7 @@ module.exports.login_post = [
 
     // valid username and password
     // token is created using username only
-    const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 60 * 60 }); // 1 hours
+    const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 60 * 60 * 24 }); // 1 day
 
     // return token for client to use for their subsequent requests
     res.status(200).json({
@@ -66,17 +69,17 @@ module.exports.signup_post = [
 
     const checkExistedUsername = await User.findOne({ username: req.body.username }, 'username').exec();
 
+    // destruct to send back when needed
+    const { fullname, username } = req.body;
+
     // check existence of username
     if (checkExistedUsername !== null) {
-      errors.push({ msg: `Username is already existed.` });
+      errors.push({ msg: `Username is already existed.`, type: 'field', value: username, path: 'username', location: 'body' });
     }
 
-    errors = errors.map((e) => ({ msg: e.msg }));
+    // errors = errors.map((e) => ({ msg: e.msg }));
 
     debug(`The error result is: `, errors);
-
-    // only send back fullname and username
-    const { fullname, username } = req.body;
 
     const user = new User({
       fullname,
@@ -100,9 +103,36 @@ module.exports.signup_post = [
   }),
 ];
 
-module.exports.all_posts_get = (req, res, next) => {
-  res.json({ message: `not implemented: all posts get`, notice: 'any one can get all posts' });
+// make passport don't send a 401 response when authenticate fail
+const passportWrapper = (req, res, next) => {
+  passport.authenticate('jwt', (err, user, info) => {
+    if (err) return next(err);
+    req.user = user;
+    debug(`the info object in wrapper: `, info);
+    next();
+  })(req, res, next);
 };
+
+module.exports.all_posts_get = [
+  passportWrapper,
+  asyncHandler(async (req, res, next) => {
+    debug(`the req.user object: `, req.user);
+    let posts;
+    let count;
+    // creator
+    if (req.user && req.user.isCreator) {
+      posts = await Post.find({}).exec();
+    }
+    // viewer, can only see published posts
+    else {
+      posts = await Post.find({ published: true }).exec();
+    }
+
+    debug(posts);
+
+    res.json({ posts });
+  }),
+];
 
 module.exports.post_get = (req, res, next) => {
   res.json({ message: `not implemented: post get`, notice: 'any one can get a post', postid: req.params.postid });

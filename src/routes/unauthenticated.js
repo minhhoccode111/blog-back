@@ -3,9 +3,9 @@ const router = express.Router();
 
 const UnauthenticatedController = require('../controllers/unauthenticatedController');
 
-router.post('/auth/login', UnauthenticatedController.login_post);
+router.post('/login', UnauthenticatedController.login_post);
 
-router.post('/auth/signup', UnauthenticatedController.signup_post);
+router.post('/signup', UnauthenticatedController.signup_post);
 
 router.get('/posts', UnauthenticatedController.all_posts_get);
 

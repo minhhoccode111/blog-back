@@ -18,9 +18,6 @@ const bcrypt = require('bcrypt');
 // will be call jwt.sign() to create a object, and secret and option like algorithm and time expire
 const jwt = require('jsonwebtoken');
 
-// some routes still need authenticate for different data return
-const passport = require('passport');
-
 module.exports.login_post = [
   body('username').trim().escape(),
   body('password').trim().escape(),
@@ -103,68 +100,58 @@ module.exports.signup_post = [
   }),
 ];
 
-// make passport don't send a 401 response when authenticate fail
-const passportWrapper = (req, res, next) => {
-  passport.authenticate('jwt', (err, user, info) => {
-    if (err) return next(err);
-    req.user = user;
-    debug(`the info object in wrapper: `, info);
-    next();
-  })(req, res, next);
-};
+module.exports.all_posts_get = asyncHandler(async (req, res, next) => {
+  debug(`the req.user object: `, req.user);
+  let posts;
+  // creator
+  if (req.user && req.user.isCreator) {
+    posts = await Post.find({}).exec();
+  }
+  // viewer, can only see published posts
+  else {
+    posts = await Post.find({ published: true }).exec();
+  }
 
-module.exports.all_posts_get = [
-  passportWrapper,
-  asyncHandler(async (req, res, next) => {
-    debug(`the req.user object: `, req.user);
-    let posts;
-    // creator
-    if (req.user && req.user.isCreator) {
-      posts = await Post.find({}).exec();
-    }
-    // viewer, can only see published posts
-    else {
-      posts = await Post.find({ published: true }).exec();
-    }
+  debug(posts);
 
-    debug(posts);
+  res.json({ posts });
+});
 
-    res.json({ posts });
-  }),
-];
+module.exports.post_get = asyncHandler(async (req, res, next) => {
+  debug(`The id belike: `, req.params.postid);
+  let post;
 
-module.exports.post_get = [
-  passportWrapper,
-  asyncHandler(async (req, res, next) => {
-    debug(`The id belike: `, req.params.postid);
-    let post;
+  // creator can get unpublished posts
+  if (req.user && req.user.isCreator) {
+    post = await Post.findById(req.params.postid).exec();
+  }
+  // only published posts
+  else {
+    post = await Post.findOne({ _id: req.params.postid, published: true }).exec();
+  }
 
-    // creator can get unpublished posts
-    if (req.user && req.user.isCreator) {
-      post = await Post.findById(req.params.postid).exec();
-    }
-    // only published posts
-    else {
-      post = await Post.findOne({ _id: req.params.postid, published: true }).exec();
-    }
+  if (post === null) {
+    const err = new Error(`Post not found.`);
+    err.status = 404;
+    next(err);
+  } else {
+    debug(`the post belike: `, post);
 
-    if (post === null) {
-      const err = new Error(`Post not found.`);
-      err.status = 404;
-      next(err);
-    } else {
-      debug(`the post belike: `, post);
-
-      res.json({ post });
-    }
-  }),
-];
+    res.json({ post });
+  }
+});
 
 module.exports.all_comments_get = asyncHandler(async (req, res, next) => {
-  const comments = await Comment.find({ post: req.params.postid });
+  const [post, comments] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.find({ post: req.params.postid }).exec()]);
 
-  debug(`All comments of a post be like`, comments);
-  debug(`The post id belike: `, req.params.postid);
-
-  res.json({ comments, postid: req.params.postid });
+  // when post is published or user is creator
+  if (post !== null && (post.published || (req.user && req.user.isCreator))) {
+    res.json({ post, comments });
+  }
+  // cannot access when post null or user is not creator and it's not published
+  else {
+    const err = new Error(`Post not found`);
+    err.status = 404;
+    next(err);
+  }
 });

@@ -82,9 +82,23 @@ passport.use(
   })
 );
 
+// only mark req.user, don't throw a 401 response immediately
+const passportWrapper = (req, res, next) => {
+  passport.authenticate('jwt', (err, user, info) => {
+    if (err) return next(err);
+    req.user = user;
+    debug(`the info object in wrapper: `, info);
+    next();
+  })(req, res, next);
+};
+
 // handle api request
 const routes = require('./src/routes'); // modular
-app.use('/api/v1/', routes.unauthenticated);
+// these routes only need to know the authorization
+// login and signup may not need to know authorization but why not
+app.use('/api/v1/', passportWrapper, routes.unauthenticated);
+
+// these routes need a 401 response immediately
 app.use('/api/v1/', passport.authenticate('jwt', { session: false }), routes.authenticated);
 
 // if no route handle the request mean it a 404

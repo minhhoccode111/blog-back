@@ -37,7 +37,12 @@ module.exports.all_posts_post = [
       published,
     });
 
-    if (errors.length === 0) {
+    // not a creator
+    if (!req.user.isCreator) {
+      res.status(403).json({
+        message: `User is not qualified to create post.`,
+      });
+    } else if (errors.length === 0) {
       await post.save();
       res.status(200).json({
         post,
@@ -69,8 +74,11 @@ module.exports.post_put = [
       published,
       _id: req.params.postid,
     });
-
-    if (errors.length === 0) {
+    if (!req.user.isCreator) {
+      res.status(403).json({
+        message: `User is not qualified to edit post.`,
+      });
+    } else if (errors.length === 0) {
       const updatedPost = await Post.findByIdAndUpdate(req.params.postid, post, {});
 
       res.status(200).json({
@@ -95,7 +103,15 @@ module.exports.post_delete = asyncHandler(async (req, res, next) => {
     const err = new Error(`Post not found.`);
     err.status = 404;
     next(err);
-  } else {
+  }
+  // user not creator
+  else if (!req.user.isCreator) {
+    res.status(403).json({
+      message: `User is not qualified to delete a post.`,
+    });
+  }
+  // all valid
+  else {
     await Post.findByIdAndDelete(req.params.postid);
     res.status(200).json({
       message: `Success deleted post: ${title}.`,
@@ -103,9 +119,40 @@ module.exports.post_delete = asyncHandler(async (req, res, next) => {
   }
 });
 
-module.exports.all_comments_post = (req, res, next) => {
-  res.json({ message: `not implemented: all comments post`, notice: 'logged in user can create new comment on a post', postid: req.params.postid });
-};
+module.exports.all_comments_post = [
+  body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
+  asyncHandler(async (req, res, next) => {
+    const errors = validationResult(req).array();
+
+    const { content } = req.body;
+
+    if (!errors.length === 0) {
+      res.status(400).json({
+        message: `Cannot create a comment with that data.`,
+        content,
+      });
+    } else {
+      const post = await Post.findById(req.params.postid).exec();
+
+      if (post === null) {
+        res.status(404).json({
+          message: `Post not found`,
+        });
+      } else {
+        const comment = new Comment({
+          content,
+          post,
+          creator: req.user,
+        });
+        await comment.save();
+        res.status(200).json({
+          message: `Success created comment.`,
+          comment,
+        });
+      }
+    }
+  }),
+];
 
 module.exports.comment_put = (req, res, next) => {
   res.json({ message: `not implemented: comment put`, notice: 'logged in user can edit their own comment on a post', postid: req.params.postid });

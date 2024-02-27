@@ -12,12 +12,6 @@ const Comment = require('./../models/comment');
 // debug
 const debug = require('debug')('xxxxxxxxxxxxxxxxxxxx-debug-xxxxxxxxxxxxxxxxxxxx');
 
-// bcrypt to secure password
-const bcrypt = require('bcrypt');
-
-// for login
-const passport = require('passport');
-
 // will be call jwt.sign() to create a object, and secret and option like algorithm and time expire
 const jwt = require('jsonwebtoken');
 const comment = require('./../models/comment');
@@ -124,34 +118,36 @@ module.exports.all_comments_post = [
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
   asyncHandler(async (req, res, next) => {
     const errors = validationResult(req).array();
+    const post = await Post.findById(req.params.postid).exec();
 
     const { content } = req.body;
 
-    if (!errors.length === 0) {
+    // not found or user is not qualified to post a comment on private post
+    if (post === null || (!req.user.isCreator && !post.published)) {
+      res.status(404).json({
+        message: `Post not found`,
+      });
+    }
+
+    // bad request data
+    if (errors.length !== 0) {
       res.status(400).json({
         message: `Cannot create a comment with that data.`,
         content,
       });
-    } else {
-      const post = await Post.findById(req.params.postid).exec();
-
-      if (post === null) {
-        res.status(404).json({
-          message: `Post not found`,
-        });
-      } else {
-        const comment = new Comment({
-          content,
-          post,
-          creator: req.user,
-        });
-        await comment.save();
-        res.status(200).json({
-          message: `Success created comment.`,
-          comment,
-        });
-      }
     }
+
+    // valid user authorization, data and post existed
+    const comment = new Comment({
+      content,
+      post,
+      creator: req.user,
+    });
+    await comment.save();
+    res.status(200).json({
+      message: `Success created comment.`,
+      comment,
+    });
   }),
 ];
 
@@ -176,7 +172,7 @@ module.exports.comment_put = [
         const err = new Error(`Comment not found`);
         err.status = 404;
         next(err);
-      } else if (post === null) {
+      } else if (post === null || (!req.user.isCreator && !post.published)) {
         res.status(404).json({
           message: `Post not found`,
         });

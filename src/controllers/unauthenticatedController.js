@@ -32,23 +32,23 @@ module.exports.login_post = [
     const user = await User.findOne({ username }).exec();
     if (user === null) {
       res.status(400).json({ message: 'Wrong username' });
+    } else {
+      // check password match
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) {
+        res.status(400).json({ message: 'Wrong password' });
+      }
+
+      // valid username and password
+      // token is created using username only
+      const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 60 * 60 * 24 }); // 1 day
+
+      // return token for client to use for their subsequent requests
+      res.status(200).json({
+        message: 'Successfully login',
+        token,
+      });
     }
-
-    // check password match
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      res.status(400).json({ message: 'Wrong password' });
-    }
-
-    // valid username and password
-    // token is created using username only
-    const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 60 * 60 * 24 }); // 1 day
-
-    // return token for client to use for their subsequent requests
-    res.status(200).json({
-      message: 'Successfully login',
-      token,
-    });
   }),
 ];
 
@@ -118,7 +118,6 @@ module.exports.all_posts_get = [
   asyncHandler(async (req, res, next) => {
     debug(`the req.user object: `, req.user);
     let posts;
-    let count;
     // creator
     if (req.user && req.user.isCreator) {
       posts = await Post.find({}).exec();
@@ -138,9 +137,15 @@ module.exports.post_get = asyncHandler(async (req, res, next) => {
   debug(`The id belike: `, req.params.postid);
   const post = await Post.findById(req.params.postid).exec();
 
-  debug(`the post belike: `, post);
+  if (post === null) {
+    const err = new Error(`Post not found.`);
+    err.status = 404;
+    next(err);
+  } else {
+    debug(`the post belike: `, post);
 
-  res.json({ post });
+    res.json({ post });
+  }
 });
 
 module.exports.all_comments_get = asyncHandler(async (req, res, next) => {

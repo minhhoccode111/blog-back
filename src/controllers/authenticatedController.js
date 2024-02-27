@@ -87,9 +87,21 @@ module.exports.post_put = [
   }),
 ];
 
-module.exports.post_delete = (req, res, next) => {
-  res.json({ message: `not implemented: post delete`, notice: 'only author can delete a post', postid: req.params.postid });
-};
+module.exports.post_delete = asyncHandler(async (req, res, next) => {
+  const post = await Post.findById(req.params.postid).exec();
+  const { title } = post;
+
+  if (post === null) {
+    const err = new Error(`Post not found.`);
+    err.status = 404;
+    next(err);
+  } else {
+    await Post.findByIdAndDelete(req.params.postid);
+    res.status(200).json({
+      message: `Success deleted post: ${title}.`,
+    });
+  }
+});
 
 module.exports.all_comments_post = (req, res, next) => {
   res.json({ message: `not implemented: all comments post`, notice: 'logged in user can create new comment on a post', postid: req.params.postid });

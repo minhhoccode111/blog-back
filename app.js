@@ -74,7 +74,7 @@ passport.use(
     try {
       const user = await User.findOne({ username: payload.username }).exec();
       if (!user) return done(null, false);
-      // success. make req.user available after passport.authenticate() middlewares chain
+      // success and make req.user available after passport.authenticate() middlewares chain
       return done(null, user);
     } catch (err) {
       return done(err, false);
@@ -83,8 +83,13 @@ passport.use(
 );
 
 // handle api request
-const router = require('./src/routes/index');
-app.use('/api/v1', router); // route for api
+// const routes = require('./src/routes');
+// app.use('/api/v1', routes.authenticated); // route for api
+// app.use('/api/v1', routes.unauthenticated); // route for api
+const authenticated = require('./src/routes/authenticated');
+const unauthenticated = require('./src/routes/unauthenticated');
+app.use('/api/v1/', unauthenticated);
+app.use('/api/v1/', authenticated);
 
 // if no route handle the request mean it a 404
 app.use(function (req, res, next) {

@@ -134,10 +134,20 @@ module.exports.all_posts_get = [
   }),
 ];
 
-module.exports.post_get = (req, res, next) => {
-  res.json({ message: `not implemented: post get`, notice: 'any one can get a post', postid: req.params.postid });
-};
+module.exports.post_get = asyncHandler(async (req, res, next) => {
+  debug(`The id belike: `, req.params.postid);
+  const post = await Post.findById(req.params.postid).exec();
 
-module.exports.all_comments_get = (req, res, next) => {
-  res.json({ message: `not implemented: all comments get`, notice: `any one can get a post's all comments`, postid: req.params.postid });
-};
+  debug(`the post belike: `, post);
+
+  res.json({ post });
+});
+
+module.exports.all_comments_get = asyncHandler(async (req, res, next) => {
+  const comments = await Comment.find({ post: req.params.postid });
+
+  debug(`All comments of a post be like`, comments);
+  debug(`The post id belike: `, req.params.postid);
+
+  res.json({ comments, postid: req.params.postid });
+});

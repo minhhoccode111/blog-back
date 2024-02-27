@@ -83,13 +83,9 @@ passport.use(
 );
 
 // handle api request
-// const routes = require('./src/routes');
-// app.use('/api/v1', routes.authenticated); // route for api
-// app.use('/api/v1', routes.unauthenticated); // route for api
-const authenticated = require('./src/routes/authenticated');
-const unauthenticated = require('./src/routes/unauthenticated');
-app.use('/api/v1/', unauthenticated);
-app.use('/api/v1/', authenticated);
+const routes = require('./src/routes'); // modular
+app.use('/api/v1/', routes.unauthenticated);
+app.use('/api/v1/', passport.authenticate('jwt', { session: false }), routes.authenticated);
 
 // if no route handle the request mean it a 404
 app.use(function (req, res, next) {

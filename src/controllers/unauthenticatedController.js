@@ -133,20 +133,32 @@ module.exports.all_posts_get = [
   }),
 ];
 
-module.exports.post_get = asyncHandler(async (req, res, next) => {
-  debug(`The id belike: `, req.params.postid);
-  const post = await Post.findById(req.params.postid).exec();
+module.exports.post_get = [
+  passportWrapper,
+  asyncHandler(async (req, res, next) => {
+    debug(`The id belike: `, req.params.postid);
+    let post;
 
-  if (post === null) {
-    const err = new Error(`Post not found.`);
-    err.status = 404;
-    next(err);
-  } else {
-    debug(`the post belike: `, post);
+    // creator can get unpublished posts
+    if (req.user && req.user.isCreator) {
+      post = await Post.findById(req.params.postid).exec();
+    }
+    // only published posts
+    else {
+      post = await Post.findOne({ _id: req.params.postid, published: true }).exec();
+    }
 
-    res.json({ post });
-  }
-});
+    if (post === null) {
+      const err = new Error(`Post not found.`);
+      err.status = 404;
+      next(err);
+    } else {
+      debug(`the post belike: `, post);
+
+      res.json({ post });
+    }
+  }),
+];
 
 module.exports.all_comments_get = asyncHandler(async (req, res, next) => {
   const comments = await Comment.find({ post: req.params.postid });

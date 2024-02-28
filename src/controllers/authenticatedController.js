@@ -299,18 +299,17 @@ module.exports.comment_put = [
 module.exports.comment_delete = asyncHandler(async (req, res) => {
   const [post, comment] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.findById(req.params.commentid).exec()]);
 
-  debug(`the post in comment put belike: `, post);
-  debug(`the comment in comment put belike: `, comment);
-  debug(`the user in comment put belike: `, req.user);
+  debug(`the post in comment delete belike: `, post);
+  debug(`the comment in comment delete belike: `, comment);
+  debug(`the user in comment delete belike: `, req.user);
 
-  // valid, post exists, comments exists, comment belong to post, comment belong to user, user is creator or post is published
-  if (post !== null && comment !== null && comment.post === post.id && comment.creator === req.user.id && (req.user.isCreator || post.published)) {
+  // post exists, comments exists, comment belong to post and
+  // user is creator (can delete any comment) or post is published and its creator is comment's creator
+  if (post !== null && comment !== null && comment.post.toString() === post.id && (req.user.isCreator || (post.published && comment.creator.toString() === req.user.id))) {
     await Comment.findByIdAndDelete(req.params.commentid);
 
     return res.status(200).json({
-      message: `Success delete comment: ${comment.content}`,
-      comment,
-      post,
+      message: `Success delete comment: ${comment.content}, deleted by: ${req.user.fullname}`,
     });
   }
 
@@ -336,14 +335,14 @@ module.exports.comment_delete = asyncHandler(async (req, res) => {
   }
 
   // comment not belong to this post
-  if (comment.post !== post.id) {
+  if (comment.post.toString() !== post.id) {
     return res.status(403).json({
       message: `Comment not belong to the post`,
     });
   }
 
   // user is not creator and try to delete comment that not theirs
-  if (!req.user.isCreator && comment.creator !== req.user.id) {
+  if (!req.user.isCreator && comment.creator.toString() !== req.user.id) {
     return res.status(403).json({
       message: `Comment not belong to the user`,
     });

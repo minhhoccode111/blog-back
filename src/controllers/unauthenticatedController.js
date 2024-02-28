@@ -21,28 +21,28 @@ const jwt = require('jsonwebtoken');
 module.exports.login_post = [
   body('username').trim().escape(),
   body('password').trim().escape(),
-  asyncHandler(async (req, res, next) => {
+  asyncHandler(async (req, res) => {
     // extract data from form
     const username = req.body.username;
     const password = req.body.password;
     // check username existed
     const user = await User.findOne({ username }).exec();
     if (user === null) {
-      res.status(400).json({ message: 'Wrong username' });
+      return res.status(400).json({ message: 'Wrong username' });
     } else {
       // check password match
       const valid = await bcrypt.compare(password, user.password);
 
       if (!valid) {
-        res.status(400).json({ message: 'Wrong password' });
+        return res.status(400).json({ message: 'Wrong password' });
       }
 
       // valid username and password
       // token is created using username only
-      const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 60 * 60 * 24 }); // 1 day
+      const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 60 * 60 * 24 * 7 }); // 7 day
 
       // return token for client to use for their subsequent requests
-      res.status(200).json({
+      return res.status(200).json({
         message: 'Successfully login',
         token,
       });
@@ -62,7 +62,7 @@ module.exports.signup_post = [
     .escape(),
   body('confirm-password', `Confirm password does not match.`).custom((value, { req }) => req.body.password === value),
 
-  asyncHandler(async (req, res, next) => {
+  asyncHandler(async (req, res) => {
     let errors = validationResult(req).array();
 
     const checkExistedUsername = await User.findOne({ username: req.body.username }, 'username').exec();
@@ -94,7 +94,7 @@ module.exports.signup_post = [
 
       await new User({ ...user, hashedPassword, isCreator: false }).save();
 
-      res.status(200).json({
+      return res.status(200).json({
         message: `Success created user`,
         user,
       });
@@ -103,7 +103,7 @@ module.exports.signup_post = [
     // data invalid
     else {
       // errors to display, user to re-fill the form for them
-      res.status(400).json({
+      return res.status(400).json({
         message: `Cannot create that user.`,
         errors,
         user,
@@ -112,7 +112,7 @@ module.exports.signup_post = [
   }),
 ];
 
-module.exports.all_posts_get = asyncHandler(async (req, res, next) => {
+module.exports.all_posts_get = asyncHandler(async (req, res) => {
   debug(`the req.user object: `, req.user);
   let posts;
 
@@ -128,10 +128,10 @@ module.exports.all_posts_get = asyncHandler(async (req, res, next) => {
 
   debug(posts);
 
-  res.status(200).json({ posts });
+  return res.status(200).json({ posts });
 });
 
-module.exports.post_get = asyncHandler(async (req, res, next) => {
+module.exports.post_get = asyncHandler(async (req, res) => {
   debug(`The id belike: `, req.params.postid);
   let post;
 
@@ -147,7 +147,7 @@ module.exports.post_get = asyncHandler(async (req, res, next) => {
 
   // user is not creator and post is private or post not exists
   if (post === null) {
-    res.status(404).json({
+    return res.status(404).json({
       message: `Post not found`,
     });
   }
@@ -156,40 +156,45 @@ module.exports.post_get = asyncHandler(async (req, res, next) => {
   else {
     debug(`the post belike: `, post);
 
-    res.json({
+    return res.json({
       post,
       message: `Post found`,
     });
   }
 });
 
-module.exports.all_comments_get = asyncHandler(async (req, res, next) => {
+module.exports.all_comments_get = asyncHandler(async (req, res) => {
   const [post, comments] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.find({ post: req.params.postid }).exec()]);
+
+  debug(`post in all comment get belike: `, post);
+  debug(`comments in all comment get belike: `, comments);
 
   // post exists, post published or user is creator
   if (post !== null && (post.published || (req.user && req.user?.isCreator))) {
-    res.json({
+    return res.status(200).json({
       post,
       comments,
-      message: `Found all comments of ${post.title}`,
+      message: `Found all comments of: ${post.title}`,
     });
   }
 
   // post not exists
   if (post === null) {
-    res.status(404).json({ message: `Post not found` });
+    return res.status(404).json({
+      message: `Post not found`,
+    });
   }
 
   // user is not creator and try to access private post
   if (!post.published && (!req.user || !req.user?.isCreator)) {
-    res.status(403).json({
+    return res.status(403).json({
       message: `Normal user cannot access private post`,
     });
   }
 
   // just in case
   else {
-    res.status(404).json({
+    return res.status(404).json({
       message: `Not found`,
     });
   }

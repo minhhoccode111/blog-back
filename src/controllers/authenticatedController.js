@@ -5,7 +5,6 @@ const asyncHandler = require('express-async-handler');
 const { body, validationResult } = require('express-validator');
 
 // mongoose models
-const User = require('./../models/user');
 const Post = require('./../models/post');
 const Comment = require('./../models/comment');
 
@@ -21,20 +20,22 @@ module.exports.all_posts_post = [
 
     // destruct data from body
     const { title, content, published } = req.body;
+    const { user } = req;
 
     const post = new Post({
+      creator: user,
       title,
       content,
-      published,
+      published: published === 'true',
     });
 
     debug(`the post in post post belike: `, post);
-    debug(`the user in post post belike: `, req.user);
+    debug(`the user in post post belike: `, user);
 
     // data valid, user is creator
-    if (errors.length === 0 && req.user.isCreator) {
+    if (errors.length === 0 && user.isCreator) {
       await post.save();
-      res.status(200).json({
+      return res.status(200).json({
         post,
         message: `Success created post.`,
       });
@@ -42,14 +43,14 @@ module.exports.all_posts_post = [
 
     // user is not creator
     if (!req.user.isCreator) {
-      res.status(403).json({
+      return res.status(403).json({
         message: `User is not qualified to create post.`,
       });
     }
 
     // data invalid
-    else if (errors.length === 0) {
-      res.status(400).json({
+    else if (errors.length !== 0) {
+      return res.status(400).json({
         post,
         errors,
         message: `Cannot create a post with that data.`,
@@ -58,7 +59,7 @@ module.exports.all_posts_post = [
 
     // just in case
     else {
-      res.status(404).json({
+      return res.status(404).json({
         message: `Not found, create post post request not handle`,
       });
     }
@@ -72,36 +73,36 @@ module.exports.post_put = [
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
 
-    // destruct data from body // TODO modify and test published form field (radio)
+    // destruct data from body
     const { title, content, published } = req.body;
 
     const post = new Post({
       title,
       content,
-      published,
+      published: published === 'true',
       _id: req.params.postid,
     });
 
     // data valid, user is creator
     if (errors.length === 0 && req.user.isCreator) {
-      const updatedPost = await Post.findByIdAndUpdate(req.params.postid, post, {});
+      await Post.findByIdAndUpdate(req.params.postid, post, {});
 
-      res.status(200).json({
-        post: updatedPost,
+      return res.status(200).json({
+        post: post,
         message: `Success created post.`,
       });
     }
 
     // user is not creator
     if (!req.user.isCreator) {
-      res.status(403).json({
+      return res.status(403).json({
         message: `User is not qualified to edit post.`,
       });
     }
 
     // data invalid
     if (errors.length !== 0) {
-      res.status(400).json({
+      return res.status(400).json({
         post,
         errors,
         message: `Cannot update a post with that data.`,
@@ -110,7 +111,7 @@ module.exports.post_put = [
 
     // just in case
     else {
-      res.status(404).json({
+      return res.status(404).json({
         message: `Not found, update post put request not handle`,
       });
     }
@@ -119,33 +120,32 @@ module.exports.post_put = [
 
 module.exports.post_delete = asyncHandler(async (req, res) => {
   const post = await Post.findById(req.params.postid).exec();
-  const { title } = post;
 
   // post not null and user is creator
   if (post !== null && req.user.isCreator) {
     await Post.findByIdAndDelete(req.params.postid);
-    res.status(200).json({
-      message: `Success deleted post: ${title}.`,
+    return res.status(200).json({
+      message: `Success deleted post: ${post.title}.`,
     });
   }
 
   // post not exists
   if (post === null) {
-    res.status(404).json({
+    return res.status(404).json({
       message: `Post not found`,
     });
   }
 
   // user not a creator
   if (!req.user.isCreator) {
-    res.status(403).json({
-      message: `Post not found`,
+    return res.status(403).json({
+      message: `User is not qualified to delete a post`,
     });
   }
 
   // just in case
   else {
-    res.status(404).json({
+    return res.status(404).json({
       message: `Not found, delete post delete request not handle`,
     });
   }
@@ -169,7 +169,7 @@ module.exports.all_comments_post = [
 
       await comment.save();
 
-      res.status(200).json({
+      return res.status(200).json({
         message: `Success created comment.`,
         comment,
       });
@@ -177,29 +177,30 @@ module.exports.all_comments_post = [
 
     // not found or user is not qualified to post a comment on private post
     if (post === null) {
-      res.status(404).json({
+      return res.status(404).json({
         message: `Not found`,
       });
     }
 
     // user not qualified to comment on private post
     if (!req.user.isCreator && !post.published) {
-      res.status(403).json({
+      return res.status(403).json({
         message: `Normal user cannot comment private post`,
       });
     }
 
     // bad request data
     if (errors.length !== 0) {
-      res.status(400).json({
+      return res.status(400).json({
         message: `Cannot create a comment with that data.`,
+        errors,
         content,
       });
     }
 
     // just in case
     else {
-      res.status(404).json({
+      return res.status(404).json({
         message: `Not found, create comment post request not handle`,
       });
     }
@@ -210,7 +211,9 @@ module.exports.comment_put = [
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
+
     const [post, comment] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.findById(req.params.commentid).exec()]);
+
     const { content } = req.body;
 
     debug(`the errors in comment put belike: `, errors);
@@ -219,68 +222,74 @@ module.exports.comment_put = [
     debug(`the user in comment put belike: `, req.user);
 
     // valid, no errors, post exists, comments exists, comment belong to post, comment belong to user, user is creator or post is published
-    if (errors.length === 0 && post !== null && comment !== null && comment.post === post.id && comment.creator === req.user.id && (req.user.isCreator || post.published)) {
-      const comment = new Comment({
+    if (errors.length === 0 && post !== null && comment !== null && comment.post.toString() === post.id && comment.creator.toString() === req.user.id && (req.user.isCreator || post.published)) {
+      const commentUpdate = new Comment({
         content,
         post: comment.post,
         creator: comment.creator,
+        _id: comment._id,
       });
 
-      await Comment.findByIdAndUpdate(req.params.commentid, comment, {});
+      await Comment.findByIdAndUpdate(req.params.commentid, commentUpdate, {});
 
-      res.status(200).json({
+      return res.status(200).json({
         message: `Success updated comment in post.`,
-        comment,
+        commentUpdate,
         post,
       });
     }
 
     // post not exists
     if (post === null) {
-      res.status(404).json({
+      return res.status(404).json({
         message: `Post not found`,
       });
     }
 
     // user is not creator and post is not published
     if (!req.user.isCreator && !post.published) {
-      res.status(403).json({
+      return res.status(403).json({
         message: `Normal user cannot update private post`,
       });
     }
 
     // comment no exists
     if (comment === null) {
-      res.status(404).json({
+      return res.status(404).json({
         message: `Comment not found`,
       });
     }
 
+    debug(`commentPost belike: `, comment.post.toString());
+    debug(`commentCreator belike: `, comment.creator.toString());
+    debug(`compare`, comment.post.toString() === comment.creator.toString());
+
     // comment not belong to this post
-    if (comment.post !== post.id) {
-      res.status(400).json({
+    if (comment.post.toString() !== post.id) {
+      return res.status(401).json({
         message: `Comment not belong to the post`,
       });
     }
 
     // comment not belong to this user
-    if (comment.user !== req.user.id) {
-      res.status(401).json({
+    if (comment.creator.toString() !== req.user.id) {
+      return res.status(401).json({
         message: `Comment not belong to the user`,
       });
     }
 
     // data invalid
-    if (!errors.length === 0) {
-      res.status(400).json({
+    if (errors.length !== 0) {
+      return res.status(400).json({
         message: `Cannot update comment with that data.`,
+        errors,
         content,
       });
     }
 
     // just in case
     else {
-      res.status(404).json({
+      return res.status(404).json({
         message: `Not found, update comment put request not handle`,
       });
     }
@@ -298,7 +307,7 @@ module.exports.comment_delete = asyncHandler(async (req, res) => {
   if (post !== null && comment !== null && comment.post === post.id && comment.creator === req.user.id && (req.user.isCreator || post.published)) {
     await Comment.findByIdAndDelete(req.params.commentid);
 
-    res.status(200).json({
+    return res.status(200).json({
       message: `Success delete comment: ${comment.content}`,
       comment,
       post,
@@ -307,42 +316,42 @@ module.exports.comment_delete = asyncHandler(async (req, res) => {
 
   // post not exists
   if (post === null) {
-    res.status(404).json({
+    return res.status(404).json({
       message: `Post not found`,
     });
   }
 
   // user is not creator and post is not published
   if (!req.user.isCreator && !post.published) {
-    res.status(403).json({
+    return res.status(403).json({
       message: `Normal user cannot delete comments on private post`,
     });
   }
 
   // comment no exists
   if (comment === null) {
-    res.status(404).json({
+    return res.status(404).json({
       message: `Comment not found`,
     });
   }
 
   // comment not belong to this post
   if (comment.post !== post.id) {
-    res.status(403).json({
+    return res.status(403).json({
       message: `Comment not belong to the post`,
     });
   }
 
   // user is not creator and try to delete comment that not theirs
   if (!req.user.isCreator && comment.creator !== req.user.id) {
-    res.status(403).json({
+    return res.status(403).json({
       message: `Comment not belong to the user`,
     });
   }
 
   // just in case
   else {
-    res.status(404).json({
+    return res.status(404).json({
       message: `Not found, delete comment delete request no handle`,
     });
   }

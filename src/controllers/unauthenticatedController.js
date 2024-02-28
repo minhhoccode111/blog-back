@@ -32,6 +32,7 @@ module.exports.login_post = [
     } else {
       // check password match
       const valid = await bcrypt.compare(password, user.password);
+
       if (!valid) {
         res.status(400).json({ message: 'Wrong password' });
       }
@@ -67,35 +68,46 @@ module.exports.signup_post = [
     const checkExistedUsername = await User.findOne({ username: req.body.username }, 'username').exec();
 
     // destruct to send back when needed
-    const { fullname, username } = req.body;
+    const { fullname, username, password } = req.body;
+
+    const user = {
+      fullname,
+      username,
+    };
 
     // check existence of username
     if (checkExistedUsername !== null) {
-      errors.push({ msg: `Username is already existed.`, type: 'field', value: username, path: 'username', location: 'body' });
+      errors.push({
+        msg: `Username is already existed.`,
+        type: 'field',
+        value: username,
+        path: 'username',
+        location: 'body',
+      });
     }
-
-    // errors = errors.map((e) => ({ msg: e.msg }));
 
     debug(`The error result is: `, errors);
 
-    const user = new User({
-      fullname,
-      username,
-      isCreator: false,
-    });
-
-    // valid signup
+    // data valid
     if (errors.length === 0) {
-      // encode password
-      const password = await bcrypt.hash(req.body.password, Number(process.env.SECRET));
-      user.password = password;
-      await user.save();
+      const hashedPassword = await bcrypt.hash(password, Number(process.env.SECRET)); // encode password
 
-      res.status(200).json({ message: `Success`, user: { fullname, username } }); // user to fill in the login form for them
+      await new User({ ...user, hashedPassword, isCreator: false }).save();
+
+      res.status(200).json({
+        message: `Success created user`,
+        user,
+      });
     }
-    // invalid signup
+
+    // data invalid
     else {
-      res.status(400).json({ message: `Cannot create that user.`, errors, user: { fullname, username } }); // errors to display, user to re-fill the form for them
+      // errors to display, user to re-fill the form for them
+      res.status(400).json({
+        message: `Cannot create that user.`,
+        errors,
+        user,
+      });
     }
   }),
 ];
@@ -103,18 +115,20 @@ module.exports.signup_post = [
 module.exports.all_posts_get = asyncHandler(async (req, res, next) => {
   debug(`the req.user object: `, req.user);
   let posts;
-  // creator
-  if (req.user && req.user.isCreator) {
+
+  // creator, get all posts
+  if (req.user && req.user?.isCreator) {
     posts = await Post.find({}).exec();
   }
-  // viewer, can only see published posts
+
+  // viewer, get published posts
   else {
     posts = await Post.find({ published: true }).exec();
   }
 
   debug(posts);
 
-  res.json({ posts });
+  res.status(200).json({ posts });
 });
 
 module.exports.post_get = asyncHandler(async (req, res, next) => {
@@ -122,36 +136,61 @@ module.exports.post_get = asyncHandler(async (req, res, next) => {
   let post;
 
   // creator can get unpublished posts
-  if (req.user && req.user.isCreator) {
-    post = await Post.findById(req.params.postid).exec();
+  if (req.user && req.user?.isCreator) {
+    post = await Post.findOne({ _id: req.params.postid }).exec();
   }
+
   // only published posts
   else {
     post = await Post.findOne({ _id: req.params.postid, published: true }).exec();
   }
 
+  // user is not creator and post is private or post not exists
   if (post === null) {
-    const err = new Error(`Post not found.`);
-    err.status = 404;
-    next(err);
-  } else {
+    res.status(404).json({
+      message: `Post not found`,
+    });
+  }
+
+  // valid
+  else {
     debug(`the post belike: `, post);
 
-    res.json({ post });
+    res.json({
+      post,
+      message: `Post found`,
+    });
   }
 });
 
 module.exports.all_comments_get = asyncHandler(async (req, res, next) => {
   const [post, comments] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.find({ post: req.params.postid }).exec()]);
 
-  // when post is published or user is creator
-  if (post !== null && (post.published || (req.user && req.user.isCreator))) {
-    res.json({ post, comments });
+  // post exists, post published or user is creator
+  if (post !== null && (post.published || (req.user && req.user?.isCreator))) {
+    res.json({
+      post,
+      comments,
+      message: `Found all comments of ${post.title}`,
+    });
   }
-  // cannot access when post null or user is not creator and it's not published
+
+  // post not exists
+  if (post === null) {
+    res.status(404).json({ message: `Post not found` });
+  }
+
+  // user is not creator and try to access private post
+  if (!post.published && (!req.user || !req.user?.isCreator)) {
+    res.status(403).json({
+      message: `Normal user cannot access private post`,
+    });
+  }
+
+  // just in case
   else {
-    const err = new Error(`Post not found`);
-    err.status = 404;
-    next(err);
+    res.status(404).json({
+      message: `Not found`,
+    });
   }
 });

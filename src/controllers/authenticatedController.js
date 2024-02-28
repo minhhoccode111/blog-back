@@ -20,7 +20,7 @@ module.exports.all_posts_post = [
   body(`title`, `Title cannot be empty.`).trim().notEmpty().escape(),
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
   body(`published`, `Published cannot be empty.`).trim().notEmpty().escape(),
-  asyncHandler(async (req, res, next) => {
+  asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
 
     // destruct data from body
@@ -73,7 +73,7 @@ module.exports.post_put = [
   body(`title`, `Title cannot be empty.`).trim().notEmpty().escape(),
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
   body(`published`, `Published cannot be empty.`).trim().notEmpty().escape(),
-  asyncHandler(async (req, res, next) => {
+  asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
 
     // destruct data from body // TODO modify and test published form field (radio)
@@ -119,7 +119,7 @@ module.exports.post_put = [
   }),
 ];
 
-module.exports.post_delete = asyncHandler(async (req, res, next) => {
+module.exports.post_delete = asyncHandler(async (req, res) => {
   const post = await Post.findById(req.params.postid).exec();
   const { title } = post;
 
@@ -155,7 +155,7 @@ module.exports.post_delete = asyncHandler(async (req, res, next) => {
 
 module.exports.all_comments_post = [
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
-  asyncHandler(async (req, res, next) => {
+  asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
     const post = await Post.findById(req.params.postid).exec();
 
@@ -210,7 +210,7 @@ module.exports.all_comments_post = [
 
 module.exports.comment_put = [
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
-  asyncHandler(async (req, res, next) => {
+  asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
     const [post, comment] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.findById(req.params.commentid).exec()]);
     const { content } = req.body;
@@ -289,6 +289,6 @@ module.exports.comment_put = [
   }),
 ];
 
-module.exports.comment_delete = (req, res, next) => {
+module.exports.comment_delete = (req, res) => {
   res.json({ message: `not implemented: comment delete`, notice: 'logged in user can delete their own comment on a post, author can delete any comment of any post', postid: req.params.postid });
 };

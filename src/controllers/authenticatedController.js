@@ -32,22 +32,38 @@ module.exports.all_posts_post = [
       published,
     });
 
-    // not a creator
-    if (!req.user.isCreator) {
-      res.status(403).json({
-        message: `User is not qualified to create post.`,
-      });
-    } else if (errors.length === 0) {
+    debug(`the post in post post belike: `, post);
+    debug(`the user in post post belike: `, req.user);
+
+    // data valid, user is creator
+    if (errors.length === 0 && req.user.isCreator) {
       await post.save();
       res.status(200).json({
         post,
         message: `Success created post.`,
       });
-    } else {
+    }
+
+    // user is not creator
+    if (!req.user.isCreator) {
+      res.status(403).json({
+        message: `User is not qualified to create post.`,
+      });
+    }
+
+    // data invalid
+    else if (errors.length === 0) {
       res.status(400).json({
         post,
         errors,
         message: `Cannot create a post with that data.`,
+      });
+    }
+
+    // just in case
+    else {
+      res.status(404).json({
+        message: `Not found`,
       });
     }
   }),
@@ -60,7 +76,7 @@ module.exports.post_put = [
   asyncHandler(async (req, res, next) => {
     const errors = validationResult(req).array();
 
-    // destruct data from body
+    // destruct data from body // TODO modify and test published form field (radio)
     const { title, content, published } = req.body;
 
     const post = new Post({
@@ -69,23 +85,36 @@ module.exports.post_put = [
       published,
       _id: req.params.postid,
     });
-    if (!req.user.isCreator) {
-      res.status(403).json({
-        message: `User is not qualified to edit post.`,
-      });
-    } else if (errors.length === 0) {
+
+    // data valid, user is creator
+    if (errors.length === 0 && req.user.isCreator) {
       const updatedPost = await Post.findByIdAndUpdate(req.params.postid, post, {});
 
       res.status(200).json({
         post: updatedPost,
         message: `Success created post.`,
       });
-    } else {
+    }
+
+    // user is not creator
+    if (!req.user.isCreator) {
+      res.status(403).json({
+        message: `User is not qualified to edit post.`,
+      });
+    }
+
+    // data invalid
+    if (errors.length !== 0) {
       res.status(400).json({
         post,
         errors,
         message: `Cannot update a post with that data.`,
       });
+    }
+
+    // just in case
+    else {
+      res.status(404).json({ message: `Not found` });
     }
   }),
 ];
@@ -94,22 +123,32 @@ module.exports.post_delete = asyncHandler(async (req, res, next) => {
   const post = await Post.findById(req.params.postid).exec();
   const { title } = post;
 
-  if (post === null) {
-    const err = new Error(`Post not found.`);
-    err.status = 404;
-    next(err);
-  }
-  // user not creator
-  else if (!req.user.isCreator) {
-    res.status(403).json({
-      message: `User is not qualified to delete a post.`,
-    });
-  }
-  // all valid
-  else {
+  // post not null and user is creator
+  if (post !== null && req.user.isCreator) {
     await Post.findByIdAndDelete(req.params.postid);
     res.status(200).json({
       message: `Success deleted post: ${title}.`,
+    });
+  }
+
+  // post not exists
+  if (post === null) {
+    res.status(404).json({
+      message: `Post not found`,
+    });
+  }
+
+  // user not a creator
+  if (!req.user.isCreator) {
+    res.status(403).json({
+      message: `Post not found`,
+    });
+  }
+
+  // just in case
+  else {
+    res.status(404).json({
+      message: `Not found`,
     });
   }
 });
@@ -122,10 +161,33 @@ module.exports.all_comments_post = [
 
     const { content } = req.body;
 
+    // post not null, data valid, user is creator or post is published
+    if (post !== null && errors.length === 0 && (req.user.isCreator || post.published)) {
+      const comment = new Comment({
+        content,
+        post,
+        creator: req.user,
+      });
+
+      await comment.save();
+
+      res.status(200).json({
+        message: `Success created comment.`,
+        comment,
+      });
+    }
+
     // not found or user is not qualified to post a comment on private post
-    if (post === null || (!req.user.isCreator && !post.published)) {
+    if (post === null) {
       res.status(404).json({
-        message: `Post not found`,
+        message: `Not found`,
+      });
+    }
+
+    // user not qualified to comment on private post
+    if (!req.user.isCreator && !post.published) {
+      res.status(403).json({
+        message: `Normal user cannot comment private post`,
       });
     }
 
@@ -137,17 +199,12 @@ module.exports.all_comments_post = [
       });
     }
 
-    // valid user authorization, data and post existed
-    const comment = new Comment({
-      content,
-      post,
-      creator: req.user,
-    });
-    await comment.save();
-    res.status(200).json({
-      message: `Success created comment.`,
-      comment,
-    });
+    // just in case
+    else {
+      res.status(404).json({
+        message: `Not found`,
+      });
+    }
   }),
 ];
 
@@ -155,49 +212,79 @@ module.exports.comment_put = [
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
   asyncHandler(async (req, res, next) => {
     const errors = validationResult(req).array();
+    const [post, comment] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.findById(req.params.commentid).exec()]);
     const { content } = req.body;
 
-    // find comment to update
+    debug(`the errors in comment put belike: `, errors);
+    debug(`the post in comment put belike: `, post);
+    debug(`the comment in comment put belike: `, comment);
+    debug(`the user in comment put belike: `, req.user);
+
+    // valid, no errors, post exists, comments exists, comment belong to post, comment belong to user, user is creator or post is published
+    if (errors.length === 0 && post !== null && comment !== null && comment.post === post.id && comment.creator === req.user.id && (req.user.isCreator || post.published)) {
+      const comment = new Comment({
+        content,
+        post: comment.post,
+        creator: comment.creator,
+      });
+
+      await Comment.findByIdAndUpdate(req.params.commentid, comment, {});
+
+      res.status(200).json({
+        message: `Success updated comment in post.`,
+        comment,
+        post,
+      });
+    }
+
+    // post not exists
+    if (post === null) {
+      res.status(404).json({
+        message: `Post not found`,
+      });
+    }
+
+    // user is not creator and post is not published
+    if (!req.user.isCreator && !post.published) {
+      res.status(403).json({
+        message: `Normal user cannot update private post`,
+      });
+    }
+
+    // comment no exists
+    if (comment === null) {
+      res.status(404).json({
+        message: `Comment not found`,
+      });
+    }
+
+    // comment not belong to this post
+    if (comment.post !== post.id) {
+      res.status(400).json({
+        message: `Comment not belong to the post`,
+      });
+    }
+
+    // comment not belong to this user
+    if (comment.user !== req.user.id) {
+      res.status(401).json({
+        message: `Comment not belong to the user`,
+      });
+    }
+
+    // data invalid
     if (!errors.length === 0) {
       res.status(400).json({
         message: `Cannot update comment with that data.`,
         content,
       });
     }
-    // update data valid
+
+    // just in case
     else {
-      const [post, comment] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.findById(req.params.commentid).exec()]);
-
-      if (comment === null) {
-        const err = new Error(`Comment not found`);
-        err.status = 404;
-        next(err);
-      } else if (post === null || (!req.user.isCreator && !post.published)) {
-        res.status(404).json({
-          message: `Post not found`,
-        });
-      }
-      // comment not belong to the post
-      else if (post.id !== comment.post) {
-        res.status(400).json({
-          message: `Comment not belong to the post`,
-        });
-      }
-      // all valid
-      else {
-        const comment = new Comment({
-          content,
-          post: comment.post,
-          creator: comment.creator,
-        });
-        await Comment.findByIdAndUpdate(req.params.commentid, comment, {});
-
-        res.status(200).json({
-          message: `Success update comment in post.`,
-          comment,
-          post,
-        });
-      }
+      res.status(404).json({
+        message: `Not found`,
+      });
     }
   }),
 ];

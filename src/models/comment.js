@@ -35,4 +35,8 @@ CommentSchema.virtual('createdAtFormatted').get(function () {
   return DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.TIME_24_SIMPLE);
 });
 
+CommentSchema.virtual('url').get(function () {
+  return `/api/v1/posts/${this.post}/comments/${this._id}`;
+});
+
 module.exports = mongoose.model('Comment', CommentSchema);

@@ -118,12 +118,22 @@ module.exports.all_posts_get = asyncHandler(async (req, res) => {
 
   // creator, get all posts
   if (req.user && req.user?.isCreator) {
-    posts = await Post.find({}).exec();
+    posts = await Post.find({}, '-__v')
+      .populate({
+        path: 'creator',
+        select: 'fullname isCreator id createdAt createdAtFormatted',
+      })
+      .exec();
   }
 
   // viewer, get published posts
   else {
-    posts = await Post.find({ published: true }).exec();
+    posts = await Post.find({ published: true }, '-__v')
+      .populate({
+        path: 'creator',
+        select: 'fullname isCreator id createdAt createdAtFormatted',
+      })
+      .exec();
   }
 
   debug(posts);
@@ -137,44 +147,43 @@ module.exports.post_get = asyncHandler(async (req, res) => {
 
   // creator can get unpublished posts
   if (req.user && req.user?.isCreator) {
-    post = await Post.findOne({ _id: req.params.postid }).exec();
+    post = await Post.findOne({ _id: req.params.postid }, '-__v')
+      .populate({
+        path: 'creator',
+        select: 'fullname isCreator id createdAt createdAtFormatted',
+      })
+      .exec();
   }
 
   // only published posts
   else {
-    post = await Post.findOne({ _id: req.params.postid, published: true }).exec();
+    post = await Post.findOne({ _id: req.params.postid, published: true }, '-__v')
+      .populate({
+        path: 'creator',
+        select: 'fullname isCreator id createdAt createdAtFormatted',
+      })
+      .exec();
   }
 
   // user is not creator and post is private or post not exists
-  if (post === null) {
-    return res.status(404).json({
-      message: `Post not found`,
-    });
-  }
-
+  if (post === null) return res.sendStatus(404);
   // valid
   else {
     debug(`the post belike: `, post);
 
-    return res.json({
+    return res.status(200).json({
       post,
-      message: `Post found`,
     });
   }
 });
 
 module.exports.all_comments_get = asyncHandler(async (req, res) => {
   const [post, comments] = await Promise.all([
-    Post.findById(req.params.postid, '-created_at -post -__v')
+    Post.findById(req.params.postid, 'title published').lean().exec(),
+    Comment.find({ post: req.params.postid }, '-__v')
       .populate({
         path: 'creator',
-        select: 'fullname isCreator',
-      })
-      .exec(),
-    Comment.find({ post: req.params.postid }, '-created_at -post -__v')
-      .populate({
-        path: 'creator',
-        select: 'fullname isCreator',
+        select: 'fullname isCreator createdAt',
       })
       .exec(),
   ]);
@@ -186,40 +195,25 @@ module.exports.all_comments_get = asyncHandler(async (req, res) => {
   if (post !== null && (post.published || (req.user && req.user?.isCreator))) {
     return res.status(200).json({
       post,
-      // mark comments that current user can delete
       comments: comments.map((comment) => {
         const canDelete = req.user?.isCreator || req.user.id === comment.creator.id;
-        debug(`try to access comment dated: `, comment.created_at_formatted);
+        debug(`try to access comment dated: `, comment.createdAtFormatted);
 
         return {
-          creator: comment.creator,
-          id: comment.id,
-          content: comment.content,
-          canDelete,
+          ...comment.toJSON(),
+          canDelete, // whether current user can delete the comment
         };
       }),
-      message: `Found all comments of: ${post.title}`,
     });
   }
 
   // post not exists
-  if (post === null) {
-    return res.status(404).json({
-      message: `Post not found`,
-    });
-  }
+  if (post === null) return res.sendStatus(404);
 
   // user is not creator and try to access private post
-  if (!post.published && (!req.user || !req.user?.isCreator)) {
-    return res.status(403).json({
-      message: `Normal user cannot access private post`,
-    });
-  }
-
+  if (!post.published && (!req.user || !req.user?.isCreator)) return res.sendStatus(403);
   // just in case
   else {
-    return res.status(404).json({
-      message: `Not found`,
-    });
+    return res.sendStatus(404);
   }
 });

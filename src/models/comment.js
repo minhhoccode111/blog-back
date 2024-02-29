@@ -28,8 +28,14 @@ const CommentSchema = new Schema({
   },
 });
 
+// CommentSchema.virtual('created_at_formatted').get(function () {
+//   return DateTime.fromJSDate(this.created_at).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.created_at).toLocaleString(DateTime.TIME_24_SIMPLE);
+// });
+
 CommentSchema.virtual('created_at_formatted').get(function () {
-  return DateTime.fromJSDate(this.created_at).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.created_at).toLocaleString(DateTime.TIME_24_SIMPLE);
+  // return DateTime.fromISO(this.created_at).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromISO(this.created_at).toLocaleString(DateTime.TIME_24_SIMPLE);
+
+  return DateTime.fromISO(this.created_at);
 });
 
 module.exports = mongoose.model('Comment', CommentSchema);

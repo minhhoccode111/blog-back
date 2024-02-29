@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+const { DateTime } = require('luxon');
+
 const Schema = mongoose.Schema;
 
 const UserSchema = new Schema({
@@ -30,10 +32,6 @@ const UserSchema = new Schema({
     type: Boolean,
     required: true,
   },
-});
-
-UserSchema.virtual('created_at_formatter').get(function () {
-  return DateTime.fromJSDate(this.created_at).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.created_at).toLocaleString(DateTime.TIME_24_SIMPLE);
 });
 
 module.exports = mongoose.model('User', UserSchema);

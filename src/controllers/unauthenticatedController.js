@@ -164,7 +164,20 @@ module.exports.post_get = asyncHandler(async (req, res) => {
 });
 
 module.exports.all_comments_get = asyncHandler(async (req, res) => {
-  const [post, comments] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.find({ post: req.params.postid }).exec()]);
+  const [post, comments] = await Promise.all([
+    Post.findById(req.params.postid, '-created_at -post -__v')
+      .populate({
+        path: 'creator',
+        select: 'fullname isCreator',
+      })
+      .exec(),
+    Comment.find({ post: req.params.postid }, '-created_at -post -__v')
+      .populate({
+        path: 'creator',
+        select: 'fullname isCreator',
+      })
+      .exec(),
+  ]);
 
   debug(`post in all comment get belike: `, post);
   debug(`comments in all comment get belike: `, comments);
@@ -173,7 +186,18 @@ module.exports.all_comments_get = asyncHandler(async (req, res) => {
   if (post !== null && (post.published || (req.user && req.user?.isCreator))) {
     return res.status(200).json({
       post,
-      comments,
+      // mark comments that current user can delete
+      comments: comments.map((comment) => {
+        const canDelete = req.user?.isCreator || req.user.id === comment.creator.id;
+        debug(`try to access comment dated: `, comment.created_at_formatted);
+
+        return {
+          creator: comment.creator,
+          id: comment.id,
+          content: comment.content,
+          canDelete,
+        };
+      }),
       message: `Found all comments of: ${post.title}`,
     });
   }

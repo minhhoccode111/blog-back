@@ -31,9 +31,9 @@ async function main() {
 
   // do some custom things
 
-  debug(`users belike: `, users);
-  debug(`posts belike: `, posts);
-  debug(`comments belike: `, comments);
+  // debug(`users belike: `, users);
+  // debug(`posts belike: `, posts);
+  // debug(`comments belike: `, comments);
   debug(`number of user currently in database: ${userNum}`);
   debug(`number of post currently in database: ${postNum}`);
   debug(`number of comment currently in database: ${commentNum}`);

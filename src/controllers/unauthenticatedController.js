@@ -18,33 +18,55 @@ const bcrypt = require('bcrypt');
 // will be call jwt.sign() to create a object, and secret and option like algorithm and time expire
 const jwt = require('jsonwebtoken');
 
+// work with date and time
+const { formatDate } = require('./../methods');
+
 module.exports.login_post = [
   body('username').trim().escape(),
   body('password').trim().escape(),
   asyncHandler(async (req, res) => {
     // extract data from form
-    const username = req.body.username;
-    const password = req.body.password;
+    const formUsername = req.body.username;
+    const formPassword = req.body.password;
     // check username existed
-    const user = await User.findOne({ username }).exec();
+    const user = await User.findOne({ username: formUsername }, '-__v').exec();
     if (user === null) {
       return res.status(400).json({ message: 'Wrong username' });
     } else {
       // check password match
-      const valid = await bcrypt.compare(password, user.password);
+      const valid = await bcrypt.compare(formPassword, user.password);
 
       if (!valid) {
         return res.status(400).json({ message: 'Wrong password' });
       }
 
+      const expiresIn = 60 * 60 * 24 * 7; // 7 days
+
+      // * 1000 for milliseconds
+      const expiresInDate = new Date(Date.now() + expiresIn * 1000);
+
+      const expiresInDateFormatted = formatDate(expiresInDate);
+
       // valid username and password
       // token is created using username only
-      const token = jwt.sign({ username }, process.env.SECRET, { expiresIn: 60 * 60 * 24 * 7 }); // 7 day
+      const token = jwt.sign({ formUsername }, process.env.SECRET, { expiresIn });
 
-      // return token for client to use for their subsequent requests
+      debug(`the user found in database belike: `, user);
+      debug(`expire time belike: `, 60 * 60 * 24 * 7, ` seconds`);
+      debug(`expire time formatted belike: `, expiresInDateFormatted);
+
+      const tmp = user.toJSON();
+      // remove password and username
+      const { password, username, ...publicUserInfo } = tmp;
+
+      // return info for client to store on their localStorage and check of expire
       return res.status(200).json({
-        message: 'Successfully login',
+        message: 'Success',
         token,
+        user: publicUserInfo,
+        expiresIn,
+        expiresInDate,
+        expiresInDateFormatted,
       });
     }
   }),
@@ -95,20 +117,17 @@ module.exports.signup_post = [
       await new User({ ...user, hashedPassword, isCreator: false }).save();
 
       return res.status(200).json({
-        message: `Success created user`,
+        message: `Success`,
         user,
       });
     }
 
     // data invalid
-    else {
-      // errors to display, user to re-fill the form for them
-      return res.status(400).json({
-        message: `Cannot create that user.`,
-        errors,
-        user,
-      });
-    }
+    return res.status(400).json({
+      message: `Data invalid`,
+      errors,
+      user,
+    });
   }),
 ];
 

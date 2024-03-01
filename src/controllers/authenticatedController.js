@@ -37,32 +37,24 @@ module.exports.all_posts_post = [
       await post.save();
       return res.status(200).json({
         post,
-        message: `Success created post.`,
+        message: `Success`,
       });
     }
 
     // user is not creator
-    if (!req.user.isCreator) {
-      return res.status(403).json({
-        message: `User is not qualified to create post.`,
-      });
-    }
+    if (!req.user.isCreator) return res.sendStatus(403);
 
     // data invalid
-    else if (errors.length !== 0) {
+    if (errors.length !== 0) {
       return res.status(400).json({
         post,
         errors,
-        message: `Cannot create a post with that data.`,
+        message: `Data invalid`,
       });
     }
 
     // just in case
-    else {
-      return res.status(404).json({
-        message: `Not found, create post post request not handle`,
-      });
-    }
+    res.sendStatus(404);
   }),
 ];
 
@@ -88,33 +80,24 @@ module.exports.post_put = [
       await Post.findByIdAndUpdate(req.params.postid, post, {});
 
       return res.status(200).json({
-        post: post,
-        message: `Success created post.`,
+        post,
+        message: `Success`,
       });
     }
 
     // user is not creator
-    if (!req.user.isCreator) {
-      return res.status(403).json({
-        message: `User is not qualified to edit post.`,
-      });
-    }
+    if (!req.user.isCreator) return res.sendStatus(403);
 
     // data invalid
     if (errors.length !== 0) {
       return res.status(400).json({
         post,
         errors,
-        message: `Cannot update a post with that data.`,
+        message: `Data invalid`,
       });
     }
 
-    // just in case
-    else {
-      return res.status(404).json({
-        message: `Not found, update post put request not handle`,
-      });
-    }
+    res.sendStatus(404);
   }),
 ];
 
@@ -124,31 +107,14 @@ module.exports.post_delete = asyncHandler(async (req, res) => {
   // post not null and user is creator
   if (post !== null && req.user.isCreator) {
     await Post.findByIdAndDelete(req.params.postid);
-    return res.status(200).json({
-      message: `Success deleted post: ${post.title}.`,
-    });
-  }
 
-  // post not exists
-  if (post === null) {
-    return res.status(404).json({
-      message: `Post not found`,
-    });
+    return res.sendStatus(200);
   }
 
   // user not a creator
-  if (!req.user.isCreator) {
-    return res.status(403).json({
-      message: `User is not qualified to delete a post`,
-    });
-  }
+  if (!req.user.isCreator) return res.sendStatus(403);
 
-  // just in case
-  else {
-    return res.status(404).json({
-      message: `Not found, delete post delete request not handle`,
-    });
-  }
+  res.sendStatus(404);
 });
 
 module.exports.all_comments_post = [
@@ -170,40 +136,24 @@ module.exports.all_comments_post = [
       await comment.save();
 
       return res.status(200).json({
-        message: `Success created comment.`,
+        message: `Success`,
         comment,
       });
     }
 
-    // not found or user is not qualified to post a comment on private post
-    if (post === null) {
-      return res.status(404).json({
-        message: `Not found`,
-      });
-    }
-
     // user not qualified to comment on private post
-    if (!req.user.isCreator && !post.published) {
-      return res.status(403).json({
-        message: `Normal user cannot comment private post`,
-      });
-    }
+    if (!req.user.isCreator && !post.published) return res.sendStatus(403);
 
     // bad request data
     if (errors.length !== 0) {
       return res.status(400).json({
-        message: `Cannot create a comment with that data.`,
+        message: `Data invalid`,
         errors,
         content,
       });
     }
 
-    // just in case
-    else {
-      return res.status(404).json({
-        message: `Not found, create comment post request not handle`,
-      });
-    }
+    res.sendStatus(404);
   }),
 ];
 
@@ -233,66 +183,36 @@ module.exports.comment_put = [
       await Comment.findByIdAndUpdate(req.params.commentid, commentUpdate, {});
 
       return res.status(200).json({
-        message: `Success updated comment in post.`,
+        message: `Success`,
         commentUpdate,
         post,
       });
     }
 
-    // post not exists
-    if (post === null) {
-      return res.status(404).json({
-        message: `Post not found`,
-      });
-    }
-
     // user is not creator and post is not published
-    if (!req.user.isCreator && !post.published) {
-      return res.status(403).json({
-        message: `Normal user cannot update private post`,
-      });
-    }
+    if (!req.user.isCreator && !post.published) return res.sendStatus(403);
 
     // comment no exists
-    if (comment === null) {
-      return res.status(404).json({
-        message: `Comment not found`,
-      });
-    }
+    if (comment === null) return res.sendStatus(404);
 
-    debug(`commentPost belike: `, comment.post.toString());
-    debug(`commentCreator belike: `, comment.creator.toString());
-    debug(`compare`, comment.post.toString() === comment.creator.toString());
-
+    // TODO better query to not use .toString()
     // comment not belong to this post
-    if (comment.post.toString() !== post.id) {
-      return res.status(401).json({
-        message: `Comment not belong to the post`,
-      });
-    }
+    if (comment.post.toString() !== post.id) return res.sendStatus(400);
 
+    // TODO better query to not use .toString()
     // comment not belong to this user
-    if (comment.creator.toString() !== req.user.id) {
-      return res.status(401).json({
-        message: `Comment not belong to the user`,
-      });
-    }
+    if (comment.creator.toString() !== req.user.id) return res.sendStatus(400);
 
     // data invalid
     if (errors.length !== 0) {
       return res.status(400).json({
-        message: `Cannot update comment with that data.`,
+        message: `Data invalid`,
         errors,
         content,
       });
     }
 
-    // just in case
-    else {
-      return res.status(404).json({
-        message: `Not found, update comment put request not handle`,
-      });
-    }
+    return res.sendStatus(404);
   }),
 ];
 
@@ -308,50 +228,25 @@ module.exports.comment_delete = asyncHandler(async (req, res) => {
   if (post !== null && comment !== null && comment.post.toString() === post.id && (req.user.isCreator || (post.published && comment.creator.toString() === req.user.id))) {
     await Comment.findByIdAndDelete(req.params.commentid);
 
-    return res.status(200).json({
-      message: `Success delete comment: ${comment.content}, deleted by: ${req.user.fullname}`,
-    });
+    return res.sendStatus(200);
   }
 
   // post not exists
-  if (post === null) {
-    return res.status(404).json({
-      message: `Post not found`,
-    });
-  }
+  if (post === null) return res.sendStatus(404);
 
   // user is not creator and post is not published
-  if (!req.user.isCreator && !post.published) {
-    return res.status(403).json({
-      message: `Normal user cannot delete comments on private post`,
-    });
-  }
+  if (!req.user.isCreator && !post.published) return res.sendStatus(403);
 
   // comment no exists
-  if (comment === null) {
-    return res.status(404).json({
-      message: `Comment not found`,
-    });
-  }
+  if (comment === null) return res.sendStatus(404);
 
+  // TODO better query to not use .toString
   // comment not belong to this post
-  if (comment.post.toString() !== post.id) {
-    return res.status(403).json({
-      message: `Comment not belong to the post`,
-    });
-  }
+  if (comment.post.toString() !== post.id) return res.sendStatus(400);
 
   // user is not creator and try to delete comment that not theirs
-  if (!req.user.isCreator && comment.creator.toString() !== req.user.id) {
-    return res.status(403).json({
-      message: `Comment not belong to the user`,
-    });
-  }
-
+  if (!req.user.isCreator && comment.creator.toString() !== req.user.id) return res.sendStatus(400);
   // just in case
-  else {
-    return res.status(404).json({
-      message: `Not found, delete comment delete request no handle`,
-    });
-  }
+
+  res.sendStatus(404);
 });

@@ -72,7 +72,8 @@ app.use(passport.initialize());
 passport.use(
   new JwtStrategy(options, async (payload, done) => {
     try {
-      const user = await User.findOne({ username: payload.username }).exec();
+      // TODO remember to exclude username and password from db retrieve
+      const user = await User.findOne({ username: payload.username }, '-username -password -__v').exec();
       if (!user) return done(null, false);
       // success and make req.user available after passport.authenticate() middlewares chain
       return done(null, user);

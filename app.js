@@ -45,6 +45,11 @@ app.use(compression());
 // security HTTP header
 app.use(helmet());
 
+// setup CORS (Cross-origin Resources Sharing) to allow request from any origin
+const cors = require('cors');
+app.use(cors());
+
+
 // basic setup
 app.use(logger('dev')); // logger
 app.use(express.json()); // parse json to js object

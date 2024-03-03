@@ -21,6 +21,9 @@ const jwt = require('jsonwebtoken');
 // work with date and time
 const { formatDate } = require('./../methods');
 
+// mongoose to check valid req.params.postid
+const mongoose = require('mongoose');
+
 module.exports.login_post = [
   body('username').trim().escape(),
   body('password').trim().escape(),
@@ -154,6 +157,10 @@ module.exports.post_get = asyncHandler(async (req, res) => {
   debug(`The id belike: `, req.params.postid);
   let post;
 
+  // don't trust the client, check every req.params validity
+  const isValidId = mongoose.isValidObjectId(req.params.postid);
+  if (!isValidId) return res.sendStatus(404);
+
   // creator can get unpublished posts
   if (req.user && req.user?.isCreator) {
     post = await Post.findOne({ _id: req.params.postid }, '-__v').populate('creator', 'fullname isCreator createdAt').exec();
@@ -177,6 +184,10 @@ module.exports.post_get = asyncHandler(async (req, res) => {
 });
 
 module.exports.all_comments_get = asyncHandler(async (req, res) => {
+  // don't trust the client, check every req.params validity
+  const isValidId = mongoose.isValidObjectId(req.params.postid);
+  if (!isValidId) return res.sendStatus(404);
+
   // in this case, it will benefit when we separately find the
   // post once instead of populate post in  every comments
   const [post, comments] = await Promise.all([

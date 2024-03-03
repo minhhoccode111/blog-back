@@ -11,6 +11,9 @@ const Comment = require('./../models/comment');
 // debug
 const debug = require('debug')('xxxxxxxxxxxxxxxxxxxx-debug-xxxxxxxxxxxxxxxxxxxx');
 
+// mongoose to check valid req.params.postid
+const mongoose = require('mongoose');
+
 module.exports.all_posts_post = [
   body(`title`, `Title cannot be empty.`).trim().notEmpty().escape(),
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
@@ -65,8 +68,14 @@ module.exports.post_put = [
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
 
+    // don't trust the client, check every req.params validity
+    const isValidId = mongoose.isValidObjectId(req.params.postid);
+    if (!isValidId) return res.sendStatus(404);
+
     // check post existence
     const count = await Post.countDocuments({ _id: req.params.postid }).exec();
+
+    debug(`the count post belike: `, count);
 
     // destruct data from body
     const { title, content, published } = req.body;
@@ -89,7 +98,7 @@ module.exports.post_put = [
     }
 
     // user is not creator
-    if (!req.user.isCreator) return res.sendStatus(403);
+    if (!req.user?.isCreator) return res.sendStatus(403);
 
     // data invalid
     if (errors.length !== 0) {
@@ -106,6 +115,10 @@ module.exports.post_put = [
 ];
 
 module.exports.post_delete = asyncHandler(async (req, res) => {
+  // don't trust the client, check every req.params validity
+  const isValidId = mongoose.isValidObjectId(req.params.postid);
+  if (!isValidId) return res.sendStatus(404);
+
   const count = await Post.countDocuments({ _id: req.params.postid }).exec();
 
   // post not null and user is creator
@@ -125,6 +138,11 @@ module.exports.all_comments_post = [
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
+
+    // don't trust the client, check every req.params validity
+    const isValidId = mongoose.isValidObjectId(req.params.postid);
+    if (!isValidId) return res.sendStatus(404);
+
     const post = await Post.findById(req.params.postid, 'createdAt published').exec();
 
     const { content } = req.body;
@@ -165,6 +183,10 @@ module.exports.comment_put = [
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
+
+    // don't trust the client, check every req.params validity
+    const isValidId = mongoose.isValidObjectId(req.params.commentid);
+    if (!isValidId) return res.sendStatus(404);
 
     const comment = await Comment.findById(req.params.commentid, 'id').populate('post', 'createdAt published').populate('creator', 'id createdAt').exec();
 
@@ -223,6 +245,10 @@ module.exports.comment_put = [
 ];
 
 module.exports.comment_delete = asyncHandler(async (req, res) => {
+  // don't trust the client, check every req.params validity
+  const isValidId = mongoose.isValidObjectId(req.params.commentid);
+  if (!isValidId) return res.sendStatus(404);
+
   const comment = await Comment.findById(req.params.commentid, 'id').populate('post', 'createdAt published').populate('creator', 'id createdAt').exec();
 
   debug(`the comment.post in comment delete belike: `, comment.post);

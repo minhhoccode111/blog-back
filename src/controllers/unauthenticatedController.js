@@ -137,22 +137,12 @@ module.exports.all_posts_get = asyncHandler(async (req, res) => {
 
   // creator, get all posts
   if (req.user && req.user?.isCreator) {
-    posts = await Post.find({}, '-__v')
-      .populate({
-        path: 'creator',
-        select: 'fullname isCreator id createdAt createdAtFormatted',
-      })
-      .exec();
+    posts = await Post.find({}, '-__v').populate('creator', 'fullname isCreator createdAt').exec();
   }
 
   // viewer, get published posts
   else {
-    posts = await Post.find({ published: true }, '-__v')
-      .populate({
-        path: 'creator',
-        select: 'fullname isCreator id createdAt createdAtFormatted',
-      })
-      .exec();
+    posts = await Post.find({ published: true }, '-__v').populate('creator', 'fullname isCreator createdAt').exec();
   }
 
   debug(posts);
@@ -166,56 +156,44 @@ module.exports.post_get = asyncHandler(async (req, res) => {
 
   // creator can get unpublished posts
   if (req.user && req.user?.isCreator) {
-    post = await Post.findOne({ _id: req.params.postid }, '-__v')
-      .populate({
-        path: 'creator',
-        select: 'fullname isCreator id createdAt createdAtFormatted',
-      })
-      .exec();
+    post = await Post.findOne({ _id: req.params.postid }, '-__v').populate('creator', 'fullname isCreator createdAt').exec();
   }
 
   // only published posts
   else {
-    post = await Post.findOne({ _id: req.params.postid, published: true }, '-__v')
-      .populate({
-        path: 'creator',
-        select: 'fullname isCreator id createdAt createdAtFormatted',
-      })
-      .exec();
+    post = await Post.findOne({ _id: req.params.postid, published: true }, '-__v').populate('creator', 'fullname isCreator createdAt').exec();
   }
 
-  // user is not creator and post is private or post not exists
-  if (post === null) return res.sendStatus(404);
   // valid
-  else {
+  if (post !== null) {
     debug(`the post belike: `, post);
 
     return res.status(200).json({
       post,
     });
   }
+
+  res.sendStatus(404);
 });
 
 module.exports.all_comments_get = asyncHandler(async (req, res) => {
+  // in this case, it will benefit when we separately find the
+  // post once instead of populate post in  every comments
   const [post, comments] = await Promise.all([
-    Post.findById(req.params.postid, 'title published').lean().exec(),
-    Comment.find({ post: req.params.postid }, '-__v')
-      .populate({
-        path: 'creator',
-        select: 'fullname isCreator createdAt',
-      })
-      .exec(),
+    Post.findById(req.params.postid, '-__v').exec(),
+    Comment.find({ post: req.params.postid }, '-__v').populate('creator', 'fullname isCreator createdAt').exec(),
   ]);
 
   debug(`post in all comment get belike: `, post);
   debug(`comments in all comment get belike: `, comments);
 
   // post exists, post published or user is creator
-  if (post !== null && (post.published || (req.user && req.user?.isCreator))) {
+  if (post !== null && (post.published || req.user?.isCreator)) {
     return res.status(200).json({
       post,
       comments: comments.map((comment) => {
-        const canDelete = req.user?.isCreator || req.user.id === comment.creator.id;
+        const canDelete = req.user?.isCreator || req.user?.id === comment.creator.id;
+
         debug(`try to access comment dated: `, comment.createdAtFormatted);
 
         return {
@@ -226,13 +204,9 @@ module.exports.all_comments_get = asyncHandler(async (req, res) => {
     });
   }
 
-  // post not exists
-  if (post === null) return res.sendStatus(404);
-
   // user is not creator and try to access private post
-  if (!post.published && (!req.user || !req.user?.isCreator)) return res.sendStatus(403);
+  if (!post?.published && !req.user?.isCreator) return res.sendStatus(403);
+
   // just in case
-  else {
-    return res.sendStatus(404);
-  }
+  res.sendStatus(404);
 });

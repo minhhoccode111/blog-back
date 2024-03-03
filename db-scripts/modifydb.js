@@ -3,6 +3,9 @@ const User = require('./../src/models/user');
 const Post = require('./../src/models/post');
 const Comment = require('./../src/models/comment');
 
+// working with password
+const bcrypt = require('bcrypt');
+
 // const debug = require('debug')('custom-debug');
 const debug = (...str) => {
   for (const s of str) {
@@ -28,6 +31,10 @@ async function main() {
   // const comments = await Comment.find({}).exec();
 
   // do some custom things
+
+  const password = await bcrypt.hash('asd' , Number(process.env.SALT));
+	const user = new User({fullname: 'asd', username: 'asd', password });
+	await user.save()
 
   // do some custom things
 

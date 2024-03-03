@@ -37,16 +37,6 @@ const PostSchema = new Schema(
   { toJSON: { virtuals: true } }
 );
 
-PostSchema.virtual('contentPreview').get(function () {
-  if (this.content.length > 150) return this.content.slice(0, 148) + '...';
-  return this.content;
-});
-
-PostSchema.virtual('titlePreview').get(function () {
-  if (this.title.length > 50) return this.title.slice(0, 48) + '...';
-  return this.title;
-});
-
 PostSchema.virtual('createdAtFormatted').get(function () {
   return DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.TIME_24_SIMPLE);
 });

@@ -36,7 +36,7 @@ CommentSchema.virtual('createdAtFormatted').get(function () {
 });
 
 CommentSchema.virtual('url').get(function () {
-  return `/api/v1/posts/${this.post}/comments/${this._id}`;
+  return `/api/v1/posts/${this.post._id}/comments/${this._id}`;
 });
 
 module.exports = mongoose.model('Comment', CommentSchema);

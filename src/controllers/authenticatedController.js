@@ -162,17 +162,16 @@ module.exports.comment_put = [
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
 
-    const [post, comment] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.findById(req.params.commentid).exec()]);
+    const comment = await Comment.findById(req.params.commentid, 'id').populate('post', 'createdAt').populate('creator', 'id createdAt').exec();
 
     const { content } = req.body;
 
     debug(`the errors in comment put belike: `, errors);
-    debug(`the post in comment put belike: `, post);
+    debug(`the comment.post in comment put belike: `, comment.post);
     debug(`the comment in comment put belike: `, comment);
     debug(`the user in comment put belike: `, req.user);
 
-    // valid, no errors, post exists, comments exists, comment belong to post, comment belong to user, user is creator or post is published
-    if (errors.length === 0 && post !== null && comment !== null && comment.post.toString() === post.id && comment.creator.toString() === req.user.id && (req.user.isCreator || post.published)) {
+    if (errors.length === 0 && comment !== null && comment.post.id === req.params.postid && comment.creator.id === req.user.id && (req.user.isCreator || comment.post.published)) {
       const commentUpdate = new Comment({
         content,
         post: comment.post,
@@ -184,24 +183,27 @@ module.exports.comment_put = [
 
       return res.status(200).json({
         message: `Success`,
+        commentBeforeUpdate: comment,
         commentUpdate,
-        post,
       });
     }
 
     // user is not creator and post is not published
-    if (!req.user.isCreator && !post.published) return res.sendStatus(403);
+    if (!req.user.isCreator && !comment.post.published) return res.sendStatus(403);
 
     // comment no exists
     if (comment === null) return res.sendStatus(404);
 
-    // TODO better query to not use .toString()
-    // comment not belong to this post
-    if (comment.post.toString() !== post.id) return res.sendStatus(400);
+    debug(`the req.params.postid belike: `, req.params.postid);
+    debug(`the comment.post.id belike: `, comment.post.id);
+    debug(`the comment.post._id belike: `, comment.post._id);
+    debug(`the comment.creator.id belike: `, comment.creator.id);
 
-    // TODO better query to not use .toString()
+    // comment not belong to this post
+    if (comment.post.id !== req.params.postid) return res.sendStatus(400);
+
     // comment not belong to this user
-    if (comment.creator.toString() !== req.user.id) return res.sendStatus(400);
+    if (comment.creator.id !== req.user.id) return res.sendStatus(400);
 
     // data invalid
     if (errors.length !== 0) {
@@ -212,7 +214,7 @@ module.exports.comment_put = [
       });
     }
 
-    return res.sendStatus(404);
+    res.sendStatus(404);
   }),
 ];
 

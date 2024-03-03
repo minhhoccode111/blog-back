@@ -49,7 +49,7 @@ module.exports.login_post = [
 
       // valid username and password
       // token is created using username only
-      const token = jwt.sign({ formUsername }, process.env.SECRET, { expiresIn });
+      const token = jwt.sign({ username: formUsername }, process.env.SECRET, { expiresIn });
 
       debug(`the user found in database belike: `, user);
       debug(`expire time belike: `, 60 * 60 * 24 * 7, ` seconds`);

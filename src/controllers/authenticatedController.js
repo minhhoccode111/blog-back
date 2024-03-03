@@ -121,7 +121,7 @@ module.exports.all_comments_post = [
   body(`content`, `Content cannot be empty.`).trim().notEmpty().escape(),
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
-    const post = await Post.findById(req.params.postid, 'createdAt').exec();
+    const post = await Post.findById(req.params.postid, 'createdAt published').exec();
 
     const { content } = req.body;
 

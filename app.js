@@ -72,9 +72,13 @@ app.use(passport.initialize());
 passport.use(
   new JwtStrategy(options, async (payload, done) => {
     try {
+      debug(`the payload object in passport.use: `, payload);
       // TODO remember to exclude username and password from db retrieve
-      const user = await User.findOne({ username: payload.username }, '-username -password -__v').exec();
+      const user = await User.findOne({ username: payload.username }, '-password -username -__v').exec();
+
+      debug(`the user object in passport.use: `, user);
       if (!user) return done(null, false);
+
       // success and make req.user available after passport.authenticate() middlewares chain
       return done(null, user);
     } catch (err) {
@@ -89,6 +93,8 @@ const passportWrapper = (req, res, next) => {
     if (err) return next(err);
     req.user = user;
     debug(`the info object in wrapper: `, info);
+    debug(`the user object in wrapper: `, user);
+
     next();
   })(req, res, next);
 };

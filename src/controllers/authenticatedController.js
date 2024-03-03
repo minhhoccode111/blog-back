@@ -162,7 +162,7 @@ module.exports.comment_put = [
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
 
-    const comment = await Comment.findById(req.params.commentid, 'id').populate('post', 'createdAt').populate('creator', 'id createdAt').exec();
+    const comment = await Comment.findById(req.params.commentid, 'id').populate('post', 'createdAt published').populate('creator', 'id createdAt').exec();
 
     const { content } = req.body;
 
@@ -219,35 +219,32 @@ module.exports.comment_put = [
 ];
 
 module.exports.comment_delete = asyncHandler(async (req, res) => {
-  const [post, comment] = await Promise.all([Post.findById(req.params.postid).exec(), Comment.findById(req.params.commentid).exec()]);
+  const comment = await Comment.findById(req.params.commentid, 'id').populate('post', 'createdAt published').populate('creator', 'id createdAt').exec();
 
-  debug(`the post in comment delete belike: `, post);
+  debug(`the comment.post in comment delete belike: `, comment.post);
+  debug(`the comment.creator in comment delete belike: `, comment.create);
   debug(`the comment in comment delete belike: `, comment);
   debug(`the user in comment delete belike: `, req.user);
 
   // post exists, comments exists, comment belong to post and
   // user is creator (can delete any comment) or post is published and its creator is comment's creator
-  if (post !== null && comment !== null && comment.post.toString() === post.id && (req.user.isCreator || (post.published && comment.creator.toString() === req.user.id))) {
+  if (comment !== null && comment.post.id === req.params.postid && (req.user.isCreator || (comment.post.published && comment.creator.id === req.user.id))) {
     await Comment.findByIdAndDelete(req.params.commentid);
 
     return res.sendStatus(200);
   }
 
-  // post not exists
-  if (post === null) return res.sendStatus(404);
-
   // user is not creator and post is not published
-  if (!req.user.isCreator && !post.published) return res.sendStatus(403);
+  if (!req.user.isCreator && !comment.post.published) return res.sendStatus(403);
 
   // comment no exists
   if (comment === null) return res.sendStatus(404);
 
-  // TODO better query to not use .toString
   // comment not belong to this post
-  if (comment.post.toString() !== post.id) return res.sendStatus(400);
+  if (comment.post.id !== req.params.postid) return res.sendStatus(400);
 
   // user is not creator and try to delete comment that not theirs
-  if (!req.user.isCreator && comment.creator.toString() !== req.user.id) return res.sendStatus(400);
+  if (!req.user.isCreator && comment.creator.id !== req.user.id) return res.sendStatus(400);
   // just in case
 
   res.sendStatus(404);

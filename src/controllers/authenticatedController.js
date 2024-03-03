@@ -65,6 +65,9 @@ module.exports.post_put = [
   asyncHandler(async (req, res) => {
     const errors = validationResult(req).array();
 
+    // check post existence
+    const count = await Post.countDocuments({ _id: req.params.postid }).exec();
+
     // destruct data from body
     const { title, content, published } = req.body;
 
@@ -75,8 +78,8 @@ module.exports.post_put = [
       _id: req.params.postid,
     });
 
-    // data valid, user is creator
-    if (errors.length === 0 && req.user.isCreator) {
+    // data valid, user is creator, a post exists
+    if (count > 0 && errors.length === 0 && req.user.isCreator) {
       await Post.findByIdAndUpdate(req.params.postid, post, {});
 
       return res.status(200).json({
@@ -97,15 +100,16 @@ module.exports.post_put = [
       });
     }
 
+    // post not found
     res.sendStatus(404);
   }),
 ];
 
 module.exports.post_delete = asyncHandler(async (req, res) => {
-  const post = await Post.countDocuments({ _id: req.params.postid }).exec();
+  const count = await Post.countDocuments({ _id: req.params.postid }).exec();
 
   // post not null and user is creator
-  if (post > 0 && req.user.isCreator) {
+  if (count > 0 && req.user.isCreator) {
     await Post.findByIdAndDelete(req.params.postid);
 
     return res.sendStatus(200);

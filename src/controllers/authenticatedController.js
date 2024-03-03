@@ -102,10 +102,10 @@ module.exports.post_put = [
 ];
 
 module.exports.post_delete = asyncHandler(async (req, res) => {
-  const post = await Post.findById(req.params.postid).exec();
+  const post = await Post.countDocuments({ _id: req.params.postid }).exec();
 
   // post not null and user is creator
-  if (post !== null && req.user.isCreator) {
+  if (post > 0 && req.user.isCreator) {
     await Post.findByIdAndDelete(req.params.postid);
 
     return res.sendStatus(200);

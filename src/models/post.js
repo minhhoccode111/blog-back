@@ -42,7 +42,7 @@ PostSchema.virtual('createdAtFormatted').get(function () {
 });
 
 PostSchema.virtual('url').get(function () {
-  return `/api/v1/posts/${this._id}`;
+  return `/posts/${this._id}`;
 });
 
 module.exports = mongoose.model('Post', PostSchema);

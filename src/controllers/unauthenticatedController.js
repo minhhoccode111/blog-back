@@ -140,12 +140,12 @@ module.exports.all_posts_get = asyncHandler(async (req, res) => {
 
   // creator, get all posts
   if (req.user && req.user?.isCreator) {
-    posts = await Post.find({}, '-__v').populate('creator', 'fullname isCreator createdAt').exec();
+    posts = await Post.find({}, '-__v').populate('creator', 'fullname isCreator createdAt').sort({ createdAt: 1 }).exec();
   }
 
   // viewer, get published posts
   else {
-    posts = await Post.find({ published: true }, '-__v').populate('creator', 'fullname isCreator createdAt').exec();
+    posts = await Post.find({ published: true }, '-__v').populate('creator', 'fullname isCreator createdAt').sort({ createdAt: 1 }).exec();
   }
 
   debug(posts);
@@ -192,7 +192,7 @@ module.exports.all_comments_get = asyncHandler(async (req, res) => {
   // post once instead of populate post in  every comments
   const [post, comments] = await Promise.all([
     Post.findById(req.params.postid, '-__v').exec(),
-    Comment.find({ post: req.params.postid }, '-__v').populate('creator', 'fullname isCreator createdAt').exec(),
+    Comment.find({ post: req.params.postid }, '-__v').populate('creator', 'fullname isCreator createdAt').sort({ createdAt: 1 }).exec(),
   ]);
 
   debug(`post in all comment get belike: `, post);

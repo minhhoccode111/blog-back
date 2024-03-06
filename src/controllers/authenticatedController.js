@@ -125,6 +125,9 @@ module.exports.post_delete = asyncHandler(async (req, res) => {
   if (count > 0 && req.user.isCreator) {
     await Post.findByIdAndDelete(req.params.postid);
 
+    // delete all relate comments
+    await Comment.deleteMany({ post: req.params.postid });
+
     return res.sendStatus(200);
   }
 

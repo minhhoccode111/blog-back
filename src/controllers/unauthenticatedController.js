@@ -140,12 +140,12 @@ module.exports.all_posts_get = asyncHandler(async (req, res) => {
 
   // creator, get all posts
   if (req.user && req.user?.isCreator) {
-    posts = await Post.find({}, '-__v').populate('creator', 'fullname isCreator createdAt').sort({ createdAt: 1 }).exec();
+    posts = await Post.find({}, '-__v').populate('creator', 'fullname isCreator createdAt').sort({ createdAt: -1 }).exec();
   }
 
   // viewer, get published posts
   else {
-    posts = await Post.find({ published: true }, '-__v').populate('creator', 'fullname isCreator createdAt').sort({ createdAt: 1 }).exec();
+    posts = await Post.find({ published: true }, '-__v').populate('creator', 'fullname isCreator createdAt').sort({ createdAt: -1 }).exec();
   }
 
   debug(posts);
@@ -205,11 +205,14 @@ module.exports.all_comments_get = asyncHandler(async (req, res) => {
       comments: comments.map((comment) => {
         const canDelete = req.user?.isCreator || req.user?.id === comment.creator.id;
 
+        const canEdit = req.user?.id === comment.creator.id;
+
         debug(`try to access comment dated: `, comment.createdAtFormatted);
 
         return {
           ...comment.toJSON(),
           canDelete, // whether current user can delete the comment
+          canEdit, // whether current user can edit the comment
         };
       }),
     });

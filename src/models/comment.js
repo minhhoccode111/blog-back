@@ -17,6 +17,9 @@ const CommentSchema = new Schema(
       type: Date,
       default: () => new Date(Date.now()),
     },
+    lastModified: {
+      type: Date,
+    },
     creator: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -33,6 +36,11 @@ const CommentSchema = new Schema(
 
 CommentSchema.virtual('createdAtFormatted').get(function () {
   return DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.TIME_24_SIMPLE);
+});
+
+CommentSchema.virtual('lastModifiedFormatted').get(function () {
+  if (this.lastModified) return DateTime.fromJSDate(this.lastModified).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.lastModified).toLocaleString(DateTime.TIME_24_SIMPLE);
+  return null;
 });
 
 CommentSchema.virtual('url').get(function () {

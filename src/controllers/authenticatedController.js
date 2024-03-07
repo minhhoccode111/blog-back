@@ -191,7 +191,7 @@ module.exports.comment_put = [
     const isValidId = mongoose.isValidObjectId(req.params.commentid);
     if (!isValidId) return res.sendStatus(404);
 
-    const comment = await Comment.findById(req.params.commentid, 'id').populate('post', 'createdAt published').populate('creator', 'id createdAt').exec();
+    const comment = await Comment.findById(req.params.commentid, 'id createdAt').populate('post', 'createdAt published').populate('creator', 'id createdAt').exec();
 
     const { content } = req.body;
 
@@ -206,6 +206,8 @@ module.exports.comment_put = [
         post: comment.post,
         creator: comment.creator,
         _id: comment._id,
+        lastModified: new Date(Date.now()),
+        createdAt: comment.createdAt,
       });
 
       await Comment.findByIdAndUpdate(req.params.commentid, commentUpdate, {});

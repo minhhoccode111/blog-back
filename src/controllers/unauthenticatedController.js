@@ -150,7 +150,15 @@ module.exports.all_posts_get = asyncHandler(async (req, res) => {
 
   debug(posts);
 
-  return res.status(200).json({ posts });
+  return res.status(200).json({
+    posts: posts.map((p) => {
+      const canModify = req?.user?.isCreator;
+      return {
+        ...p.toJSON(),
+        canModify,
+      };
+    }),
+  });
 });
 
 module.exports.post_get = asyncHandler(async (req, res) => {
@@ -176,7 +184,10 @@ module.exports.post_get = asyncHandler(async (req, res) => {
     debug(`the post belike: `, post);
 
     return res.status(200).json({
-      post,
+      post: {
+        ...post.toJSON(),
+        canModify: req?.user?.isCreator,
+      },
     });
   }
 

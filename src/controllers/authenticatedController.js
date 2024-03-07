@@ -85,6 +85,7 @@ module.exports.post_put = [
       content,
       published: published === 'true',
       _id: req.params.postid,
+      createdAt: new Date(Date.now()), // update is like create a new post
     });
 
     // data valid, user is creator, a post exists

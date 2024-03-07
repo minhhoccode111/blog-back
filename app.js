@@ -36,7 +36,7 @@ const app = express();
 app.disable('x-powered-by');
 
 // rate limit // TODO change to 20 in production
-const limiter = RateLimit({ windowMs: 1 * 60 * 1000, max: 200 }); // max 200/min
+const limiter = RateLimit({ windowMs: 1 * 60 * 1000, max: 60 }); // max 20/min
 app.use(limiter);
 
 // compress responses for performance
@@ -47,8 +47,16 @@ app.use(helmet());
 
 // setup CORS (Cross-origin Resources Sharing) to allow request from any origin
 const cors = require('cors');
-app.use(cors());
-
+// app.use(cors()); // TODO is used for development
+app.use(
+  cors({
+    origin: [
+      'http://localhost:5173', // development
+      'https://minhhoccode.vercel.app', // production
+    ],
+    methods: 'GET,POST,PUT,DELETE', // simple CRUD actions
+  })
+);
 
 // basic setup
 app.use(logger('dev')); // logger
@@ -78,7 +86,6 @@ passport.use(
   new JwtStrategy(options, async (payload, done) => {
     try {
       debug(`the payload object in passport.use: `, payload);
-      // TODO remember to exclude username and password from db retrieve
       const user = await User.findOne({ username: payload.username }, '-password -username -__v').exec();
 
       debug(`the user object in passport.use: `, user);

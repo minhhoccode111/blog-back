@@ -32,9 +32,9 @@ async function main() {
 
   // do some custom things
 
-  const password = await bcrypt.hash('asd' , Number(process.env.SALT));
-	const user = new User({fullname: 'asd', username: 'asd', password });
-	await user.save()
+  const password = await bcrypt.hash('asd', Number(process.env.SALT));
+  const user = new User({ fullname: 'Default User', username: 'asd', password });
+  await user.save();
 
   // do some custom things
 

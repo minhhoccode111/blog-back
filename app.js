@@ -51,7 +51,8 @@ const cors = require('cors');
 app.use(
   cors({
     origin: [
-      'http://localhost:5173', // development
+      'http://localhost:5173', // development frontend
+      'http://localhost:3000', // development postman
       'https://minhhoccode.vercel.app', // production
     ],
     methods: 'GET,POST,PUT,DELETE', // simple CRUD actions

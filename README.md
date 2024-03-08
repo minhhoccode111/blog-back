@@ -1,6 +1,6 @@
-# blog-back
+# Blog API TOP
 
-The **Project Blog API ** application is created according to the assignment from **The Odin Project** [course](https://www.theodinproject.com/lessons/nodejs-blog-api).
+The **Project Blog API** is created according to the assignment from **The Odin Project** [course](https://www.theodinproject.com/lessons/nodejs-blog-api).
 <br>
 <br>
 
@@ -17,6 +17,7 @@ The **Project Blog API ** application is created according to the assignment fro
 - CRUD actions
 - JSON Web Token Authentication
 - CORS to only allow requests from my frontend
+- RESTful API
 
 ## **Outcome**
 

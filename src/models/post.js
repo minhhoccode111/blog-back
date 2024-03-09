@@ -41,6 +41,10 @@ PostSchema.virtual('createdAtFormatted').get(function () {
   return DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.TIME_24_SIMPLE);
 });
 
+PostSchema.virtual('createdAtUnix').get(function () {
+  return this.createdAt.getTime();
+});
+
 PostSchema.virtual('url').get(function () {
   return `/posts/${this._id}`;
 });

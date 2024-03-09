@@ -38,8 +38,17 @@ CommentSchema.virtual('createdAtFormatted').get(function () {
   return DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.createdAt).toLocaleString(DateTime.TIME_24_SIMPLE);
 });
 
+CommentSchema.virtual('createdAtUnix').get(function () {
+  return this.createdAt.getTime();
+});
+
 CommentSchema.virtual('lastModifiedFormatted').get(function () {
   if (this.lastModified) return DateTime.fromJSDate(this.lastModified).toLocaleString(DateTime.DATE_MED) + ' - ' + DateTime.fromJSDate(this.lastModified).toLocaleString(DateTime.TIME_24_SIMPLE);
+  return null;
+});
+
+CommentSchema.virtual('lastModifiedUnix').get(function () {
+  if (this.lastModified) return this.lastModified.getTime();
   return null;
 });
 
